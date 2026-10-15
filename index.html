@@ -4,6 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema Avançado de Checklist de Manutenção</title>
+    <meta name="theme-color" content="#111827">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Checklist">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="./app-icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="./app-icon-192.png">
     <script>(function(){try{var s=localStorage.getItem('theme');var p=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;var d=s?s==='dark':p;if(d){document.documentElement.classList.add('dark');}}catch(e){}})();</script>
     
     <!-- Firebase SDKs -->
@@ -608,6 +616,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
                             </svg>
                         </button>
+                        <button id="installAppBtn" onclick="installMobileApp()" class="hidden whitespace-nowrap px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700" aria-label="Instalar aplicativo">Instalar app</button>
                     </div>
                 </div>
             </div>
@@ -4551,6 +4560,39 @@
             else if (isRestrictedUser()) { showSection('cct_coque'); }
             if (isAdmin()) { const b = document.getElementById('adminNavBtn'); if (b) b.classList.remove('hidden'); }
             bindDraftPersistence();
+        }
+
+        let deferredInstallPrompt = null;
+        function installMobileApp() {
+            if (!deferredInstallPrompt) {
+                showCustomAlert('Para instalar no Android, abra o menu do Chrome (⋮) e escolha “Instalar app” ou “Adicionar à tela inicial”.');
+                return;
+            }
+            deferredInstallPrompt.prompt();
+            deferredInstallPrompt.userChoice.finally(() => {
+                deferredInstallPrompt = null;
+                const button = document.getElementById('installAppBtn');
+                if (button && window.matchMedia('(display-mode: standalone)').matches) button.classList.add('hidden');
+            });
+        }
+
+        window.addEventListener('beforeinstallprompt', event => {
+            event.preventDefault();
+            deferredInstallPrompt = event;
+            const button = document.getElementById('installAppBtn');
+            if (button) button.classList.remove('hidden');
+        });
+        window.addEventListener('appinstalled', () => {
+            deferredInstallPrompt = null;
+            const button = document.getElementById('installAppBtn');
+            if (button) button.classList.add('hidden');
+        });
+        if (/Android/i.test(navigator.userAgent) && !window.matchMedia('(display-mode: standalone)').matches) {
+            const button = document.getElementById('installAppBtn');
+            if (button) button.classList.remove('hidden');
+        }
+        if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+            window.addEventListener('load', () => navigator.serviceWorker.register(new URL('./service-worker.js', location.href), { scope: new URL('./', location.href).pathname }).catch(error => console.warn('Não foi possível preparar o modo instalável:', error)));
         }
 
         function bindDraftPersistence() {
