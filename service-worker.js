@@ -6,7 +6,8 @@ const APP_FILES = [
     './manifest.webmanifest',
     './app-icon.svg',
     './app-icon-192.png',
-    './app-icon-512.png'
+    './app-icon-512.png',
+    './usina-cambui.png'
 ];
 const CDN_HOSTS = new Set([
     'www.gstatic.com',

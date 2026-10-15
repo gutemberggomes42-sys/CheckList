@@ -10728,6 +10728,7 @@
             const matchId = String(id);
             const inspection = inspections.find(i => String(i.id) === matchId || String(i.local_id) === matchId);
             if (!inspection) { showCustomAlert('Inspeção não encontrada'); return; }
+            const usinaLogoUrl = new URL('./usina-cambui.png', window.location.href).href;
             const sectionNotes = {};
             const normalItems = Array.isArray(inspection.items) ? inspection.items.filter(it => {
                 if (String(it.name).startsWith('Observações da seção - ')) {
@@ -10801,6 +10802,8 @@
                         .container { max-width: 940px; margin: 0 auto; padding: 24px; }
                         .header { display:flex; justify-content: space-between; align-items:center; margin-bottom: 16px; }
                         .brand { display:flex; align-items:center; gap:10px; }
+                        .usina-brand { display:flex; justify-content:center; align-items:center; padding:8px 12px; margin-bottom:14px; border:1px solid #f59e0b; border-radius:10px; background:#fffaf0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+                        .usina-brand img { display:block; width:min(380px, 90%); height:80px; object-fit:contain; }
                         .logo { width:28px; height:28px; border-radius:8px; background:#5D5CDE; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; }
                         .title { font-size: 18px; font-weight: 700; }
                         .subtitle { font-size: 12px; color:#6B7280; }
@@ -10827,6 +10830,7 @@
                     </style>
                 </head><body onload="window.print()">
                     <div class="container">
+                        <div class="usina-brand"><img src="${usinaLogoUrl}" alt="Usina Cambuí — Açúcar e Álcool"></div>
                         <div class="header">
                             <div class="brand"><div class="logo">GG</div><div><div class="title">GGOMES-LOG • Checklist</div><div class="subtitle">${formatDateBR(inspection.data)}</div></div></div>
                             <div class="subtitle">Gerado em ${new Date().toLocaleString('pt-BR')}</div>
