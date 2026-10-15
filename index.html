@@ -3321,6 +3321,14 @@
         function queueIrrInspection(item) { const q = getPendingIrrInspections(); q.push(item); setPendingIrrInspections(q); }
         function getCachedEquipments() { try { return JSON.parse(localStorage.getItem('cachedEquipments')) || []; } catch(_) { return []; } }
         function setCachedEquipments(list) { try { localStorage.setItem('cachedEquipments', JSON.stringify(list)); } catch(_) {} }
+        const equipmentCatalogResetVersion = 'fresh-equipment-catalog-2026-10-15';
+        try {
+            if (localStorage.getItem('equipmentCatalogResetVersion') !== equipmentCatalogResetVersion) {
+                localStorage.removeItem('cachedEquipments');
+                localStorage.removeItem('pendingEquipments');
+                localStorage.setItem('equipmentCatalogResetVersion', equipmentCatalogResetVersion);
+            }
+        } catch(_) {}
         function getPendingEquipments() { try { return JSON.parse(localStorage.getItem('pendingEquipments')) || []; } catch(_) { return []; } }
         function setPendingEquipments(list) { try { localStorage.setItem('pendingEquipments', JSON.stringify(list)); } catch(_) {} }
         function queueEquipment(item) { const q = getPendingEquipments(); q.push(item); setPendingEquipments(q); }
@@ -5255,18 +5263,7 @@
                 // Equipamentos e sementes em paralelo
                 await loadEquipments();
                 updateStep('Equipamentos carregados e cache de frotas atualizado');
-                await Promise.all([
-                    seedTrucks(),
-                    seedHarvesters(),
-                    seedTractors(),
-                    seedPlanters(),
-                    seedDistributors(),
-                    seedTrailers(),
-                    seedTransbordos(),
-                    seedCobridores(),
-                    seedTortao()
-                ].map(p => p.catch ? p : Promise.resolve()));
-                updateStep('Dados base de sementes e frotas preparados');
+                updateStep('Catálogo de equipamentos pronto para novos cadastros');
 
                 // Sincronizações pendentes em paralelo
                 await Promise.all([
@@ -5891,71 +5888,20 @@
             }
         }
 
-        const fallbackTanks = [
-            { frota: '6290', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6291', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6292', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6293', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6294', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6295', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6296', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6297', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6298', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6299', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6300', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6301', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6302', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6303', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6304', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6305', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6306', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6307', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6308', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6309', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6310', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6311', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6312', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6313', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6314', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6315', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6316', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6317', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6318', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6319', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6320', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6321', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6322', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6323', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6324', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6325', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6326', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6327', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6328', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' },
-            { frota: '6329', descricao: 'Reboque Tanque Rodofort', tipo: 'tanques' }
-        ];
-
         async function loadEquipments() {
             const cached = getCachedEquipments() || [];
             let fetched = cached;
             try {
                 if (isOnline()) {
-                    if (cached.length) {
-                        fetched = await smartSync('equipments', cached, 'id', 'updated_at');
-                    } else {
-                        const result = await checklistBackend.from('equipments').select('*');
-                        if (result.error) throw result.error;
-                        fetched = result.data || [];
-                    }
+                    const result = await checklistBackend.from('equipments').select('*');
+                    if (result.error) throw result.error;
+                    fetched = result.data || [];
                 }
             } catch (_) {
                 fetched = cached;
             }
             const map = new Map();
             fetched.forEach(e => map.set(String(e.frota), e));
-            cached.forEach(e => { if (!map.has(String(e.frota))) map.set(String(e.frota), e); });
-            fallbackTanks.forEach(e => {
-                if (!map.has(String(e.frota))) map.set(String(e.frota), { ...e, status: 'ativo' });
-            });
             equipments = Array.from(map.values());
             setCachedEquipments(equipments);
         }
@@ -6016,14 +5962,7 @@
 
         function getEquipmentGroupsForPage(page, baseGroups) {
             const assigned = (equipments || []).filter(e => getEquipmentPage(e) === page && (e.status || 'ativo') === 'ativo' && e.frota != null && String(e.frota).trim());
-            const assignedByFleet = new Map((equipments || []).filter(e => getEquipmentPage(e) && e.frota != null).map(e => [String(e.frota), getEquipmentPage(e)]));
-            const groups = (baseGroups || []).map(group => ({
-                type: group.type,
-                items: (group.items || []).filter(item => {
-                    const assignedPage = assignedByFleet.get(String(item.frota));
-                    return !assignedPage || assignedPage === page;
-                }).map(item => ({ ...item }))
-            })).filter(group => group.items.length);
+            const groups = [];
             assigned.forEach(equipment => {
                 const type = equipmentTypeLabel(equipment.tipo || equipment.setor || 'outros');
                 let group = groups.find(item => item.type === type);
