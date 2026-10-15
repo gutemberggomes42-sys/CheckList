@@ -2278,6 +2278,8 @@
                                 <option value="distribuidora">Distribuidora</option>
                                 <option value="reboque">Reboque</option>
                                 <option value="transbordo">Transbordo</option>
+                                <option value="cobridores">Cobridores</option>
+                                <option value="tortao">Tortão</option>
                                 <option value="outros">Outros</option>
                             </select>
                         </div>
@@ -2329,6 +2331,8 @@
                                 <option value="distribuidora">Distribuidora</option>
                                 <option value="reboque">Reboque</option>
                                 <option value="transbordo">Transbordo</option>
+                                <option value="cobridores">Cobridores</option>
+                                <option value="tortao">Tortão</option>
                                 <option value="outros">Outros</option>
                             </select>
                     </div>
@@ -3273,6 +3277,8 @@
         let currentEquipmentSource = 'general';
         let inspections = [];
         let equipments = [];
+        let pendingEquipmentRegistration = null;
+        let resumeCCTDraftAutomatically = false;
         let editingEquipmentId = null;
         let editingEquipmentOriginalKey = null;
         let realtimeChannel = null;
@@ -4946,6 +4952,43 @@
             return userId;
         }
 
+        function openEquipmentRegistrationForChecklist(type, frota) {
+            saveCCTDraft();
+            pendingEquipmentRegistration = { tipo: type, frota: String(frota || '').trim() };
+            cancelEditEquipment();
+            showSection('equipamentos');
+            document.getElementById('equipmentFormTitle').textContent = 'Cadastre o equipamento para continuar';
+            document.getElementById('equipTipo').value = type;
+            document.getElementById('equipFrota').value = String(frota || '').trim();
+            document.getElementById('equipFrota').readOnly = true;
+            document.getElementById('equipStatus').value = 'ativo';
+            document.getElementById('equipPagina').value = equipmentChecklistPage(type);
+            document.getElementById('equipDesc').focus();
+            showFloatingNotification('warning', 'Cadastre este equipamento para liberar o salvamento do checklist. Seu checklist ficou salvo em rascunho.');
+        }
+
+        function resumeChecklistAfterEquipmentRegistration() {
+            const pending = pendingEquipmentRegistration;
+            if (!pending) return;
+            pendingEquipmentRegistration = null;
+            document.getElementById('equipFrota').readOnly = false;
+            document.getElementById('equipmentFormTitle').textContent = 'Novo Equipamento';
+            showSection('cct_coque');
+            showCCTSubsection('inicio');
+            resumeCCTDraftAutomatically = true;
+            selectEquipment(pending.tipo);
+            const select = document.getElementById('frotaSelect');
+            const custom = document.getElementById('frotaCustom');
+            if (select) {
+                const hasOption = Array.from(select.options).some(option => option.value === pending.frota);
+                select.value = hasOption ? pending.frota : 'custom';
+                select.dispatchEvent(new Event('change'));
+            }
+            if (custom && (!select || select.value === 'custom')) custom.value = pending.frota;
+            saveCCTDraft();
+            showFloatingNotification('success', 'Equipamento cadastrado. Revise e salve o checklist.');
+        }
+
         // Salvar inspeção no Firebase
         async function saveInspection() {
             const validUserId = await ensureUserRecord();
@@ -5005,6 +5048,11 @@
             const completedItems = currentInspection.items.filter(item => item.status !== null);
             if (completedItems.length === 0) {
                 showCustomAlert('Por favor, marque pelo menos um item do checklist.');
+                return;
+            }
+
+            if (!isEquipmentRegisteredForChecklist(currentEquipment, frota)) {
+                openEquipmentRegistrationForChecklist(currentEquipment, frota);
                 return;
             }
 
@@ -5513,6 +5561,22 @@
             const frota = String(equipment && equipment.frota || '').trim().toUpperCase();
             return frota + '::' + getEquipmentPage(equipment);
         }
+        function equipmentChecklistPage(type) {
+            const pages = { caminhao: 'caminhoes', trator: 'plantio', colhedora: 'plantio', plantadora: 'plantio', distribuidora: 'plantio', transbordo: 'plantio', reboque: 'cct', cobridores: 'apoio_plantio', tortao: 'plantio' };
+            return pages[type] || 'cct';
+        }
+        function isEquipmentRegisteredForChecklist(type, frota) {
+            const aliases = typeAliases(type);
+            const targetPage = equipmentChecklistPage(type);
+            const normalizedFleet = String(frota || '').trim().toUpperCase();
+            return (equipments || []).some(equipment => {
+                const page = getEquipmentPage(equipment);
+                return aliases.includes(equipment.tipo || equipment.setor)
+                    && String(equipment.frota || '').trim().toUpperCase() === normalizedFleet
+                    && (equipment.status || 'ativo') === 'ativo'
+                    && (currentEquipmentSource !== 'cct' || !page || page === 'cct' || page === targetPage);
+            });
+        }
         function equipmentUiId(equipment) {
             return String(equipment && equipment.id || equipmentIdentityKey(equipment));
         }
@@ -5563,8 +5627,7 @@
             const sel = document.getElementById('frotaSelect');
             if (!sel) return;
             const aliases = typeAliases(type);
-            const cctPageByType = { caminhao: 'caminhoes', trator: 'plantio', colhedora: 'plantio', plantadora: 'plantio', distribuidora: 'plantio', transbordo: 'plantio', reboque: 'cct', cobridores: 'apoio_plantio', tortao: 'plantio' };
-            const targetPage = cctPageByType[type] || 'cct';
+            const targetPage = equipmentChecklistPage(type);
             const list = (equipments || []).filter(e => {
                 if (!aliases.includes(e.tipo || e.setor) || (e.status || 'ativo') !== 'ativo') return false;
                 if (currentEquipmentSource !== 'cct') return true;
@@ -6130,6 +6193,7 @@
                 document.getElementById('equipFrota').value = '';
                 document.getElementById('equipDesc').value = '';
                 document.getElementById('equipPagina').value = '';
+                resumeChecklistAfterEquipmentRegistration();
             } catch (e) {
                 equipments.unshift(item);
                 setCachedEquipments(equipments);
@@ -6139,6 +6203,7 @@
                 document.getElementById('equipFrota').value = '';
                 document.getElementById('equipDesc').value = '';
                 document.getElementById('equipPagina').value = '';
+                resumeChecklistAfterEquipmentRegistration();
             } finally {
                 showLoading(false);
             }
@@ -8849,6 +8914,8 @@
                 mechEl.value = getDisplayName(u);
             }
             try {
+                const autoResumeDraft = resumeCCTDraftAutomatically;
+                resumeCCTDraftAutomatically = false;
                 const bind = (id, evt='input') => { const el = document.getElementById(id); if (el && !el._draftBound) { el.addEventListener(evt, saveCCTDraft); el._draftBound = true; } };
                 bind('dataInspecao','change'); bind('mecanico'); bind('observacao'); bind('reformaStatus','change'); bind('frotaSelect','change'); bind('frotaCustom');
                 const refEl = document.getElementById('reformaStatus');
@@ -8860,7 +8927,7 @@
                 if (raw) {
                     const d = JSON.parse(raw);
                     if (d && d.tipo === currentEquipment) {
-                        const ok = confirm('Encontramos um rascunho anterior. Deseja retomar?');
+                        const ok = autoResumeDraft || confirm('Encontramos um rascunho anterior. Deseja retomar?');
                         if (ok) restoreCCTDraft(); else { try { localStorage.removeItem('cctDraft'); } catch(_) {} clearForm(); }
                     } else if (d && d.tipo && d.tipo !== currentEquipment) {
                         const ok2 = confirm('Existe rascunho de outro equipamento. Deseja descartar?');
