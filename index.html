@@ -1833,6 +1833,29 @@
                         </div>
                         <div id="adminUsersList" class="space-y-2"></div>
                     </div>
+                    <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl lg:col-span-2">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Perguntas dos checklists</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Edite ou adicione perguntas. As alterações ficam disponíveis para todos os usuários nos próximos checklists.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                            <label class="text-sm text-gray-700 dark:text-gray-300">Módulo
+                                <select id="adminChecklistModule" onchange="renderChecklistQuestionEditorOptions(true)" class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                                    <option value="cct">CCT</option><option value="irr">Irrigação</option>
+                                </select>
+                            </label>
+                            <label class="text-sm text-gray-700 dark:text-gray-300">Checklist
+                                <select id="adminChecklistType" onchange="renderChecklistQuestionEditorOptions(false, true)" class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"></select>
+                            </label>
+                            <label class="text-sm text-gray-700 dark:text-gray-300">Seção
+                                <select id="adminChecklistSection" onchange="renderChecklistQuestionItems()" class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"></select>
+                            </label>
+                        </div>
+                        <div id="adminChecklistQuestionsList" class="space-y-2"></div>
+                        <div class="flex flex-wrap gap-2 mt-4">
+                            <button type="button" onclick="addChecklistQuestion()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 rounded-md">Adicionar pergunta</button>
+                            <button id="adminSaveChecklistQuestionsBtn" type="button" onclick="saveChecklistQuestionEditor()" class="px-4 py-2 bg-primary text-white rounded-md">Salvar perguntas para todos</button>
+                        </div>
+                        <div id="adminChecklistQuestionsStatus" class="mt-2 text-xs text-gray-600 dark:text-gray-300"></div>
+                    </div>
                     <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Configuração do Firebase</h3>
                         <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Habilite Email/Senha no Firebase Authentication e publique as regras de firestore.rules no Firestore. Para copiar os registros antigos, abra <a class="text-primary underline" href="migrate-supabase-data.html" target="_blank" rel="noopener">a ferramenta de migração única</a>.</p>
@@ -4874,6 +4897,8 @@
                     }
                 }
 
+                await loadChecklistQuestionOverrides();
+
                 if (hadCache) {
                     // Se já temos dados locais, liberamos a tela e sincronizamos em segundo plano
                     showLoading(false);
@@ -5730,6 +5755,158 @@
                 applyEquipmentPageVisibilityToCurrentView();
             } catch (error) {
                 console.warn('Não foi possível carregar nomes das páginas:', error);
+            }
+        }
+
+        function getChecklistQuestionConfigs(module) {
+            return module === 'irr' ? irrigEquipmentConfigs : equipmentConfigs;
+        }
+
+        function checklistConfigLabel(module, key, config) {
+            if (config && config.title) return config.title;
+            const labels = { motobombas: 'MotoBombas', hidroroll: 'Hidro Roll', caminhoes: 'Caminhões', tanques: 'Tanques' };
+            return labels[key] || key;
+        }
+
+        function serializeChecklistQuestionConfigs() {
+            const serialize = configs => Object.fromEntries(Object.keys(configs).map(key => [key, (configs[key].sections || []).map(section => ({
+                name: String(section.name || ''),
+                items: (Array.isArray(section.items) ? section.items : []).map(item => String(item))
+            }))]));
+            return { cct: serialize(equipmentConfigs), irr: serialize(irrigEquipmentConfigs) };
+        }
+
+        function applyChecklistQuestionOverrides(overrides) {
+            if (!overrides || typeof overrides !== 'object') return;
+            [['cct', equipmentConfigs], ['irr', irrigEquipmentConfigs]].forEach(([module, configs]) => {
+                const moduleOverrides = overrides[module];
+                if (!moduleOverrides || typeof moduleOverrides !== 'object') return;
+                Object.keys(configs).forEach(key => {
+                    const savedSections = moduleOverrides[key];
+                    if (!Array.isArray(savedSections)) return;
+                    const validSections = savedSections.filter(section => section && typeof section.name === 'string' && Array.isArray(section.items));
+                    if (validSections.length !== savedSections.length) return;
+                    configs[key].sections = validSections.map(section => ({
+                        name: section.name,
+                        items: section.items.map(item => String(item))
+                    }));
+                });
+            });
+        }
+
+        async function loadChecklistQuestionOverrides() {
+            try {
+                const cached = JSON.parse(localStorage.getItem('checklistQuestionOverrides') || 'null');
+                if (cached) applyChecklistQuestionOverrides(cached);
+            } catch (_) {}
+            if (!isOnline()) return;
+            try {
+                const { data, error } = await checklistBackend.from('app_settings').select('*').eq('id', 'checklist_questions').maybeSingle();
+                if (error) throw error;
+                if (data && data.cct && data.irr) {
+                    const overrides = { cct: data.cct, irr: data.irr };
+                    applyChecklistQuestionOverrides(overrides);
+                    localStorage.setItem('checklistQuestionOverrides', JSON.stringify(overrides));
+                    const section = document.getElementById('admin');
+                    if (section && !section.classList.contains('hidden')) renderChecklistQuestionEditorOptions(false, false);
+                }
+            } catch (error) {
+                console.warn('Não foi possível carregar perguntas personalizadas:', error);
+            }
+        }
+
+        function getChecklistEditorSelection() {
+            const module = document.getElementById('adminChecklistModule')?.value || 'cct';
+            const key = document.getElementById('adminChecklistType')?.value || '';
+            const sectionIndex = Number(document.getElementById('adminChecklistSection')?.value || 0);
+            const config = getChecklistQuestionConfigs(module)[key];
+            const section = config && config.sections ? config.sections[sectionIndex] : null;
+            return { module, key, config, section, sectionIndex };
+        }
+
+        function renderChecklistQuestionEditorOptions(resetType = false, resetSection = false) {
+            const moduleSelect = document.getElementById('adminChecklistModule');
+            const typeSelect = document.getElementById('adminChecklistType');
+            const sectionSelect = document.getElementById('adminChecklistSection');
+            if (!moduleSelect || !typeSelect || !sectionSelect) return;
+            const module = moduleSelect.value || 'cct';
+            const configs = getChecklistQuestionConfigs(module);
+            const previousType = typeSelect.value;
+            typeSelect.innerHTML = Object.keys(configs).map(key => `<option value="${escapeEquipmentAttribute(key)}">${escapeEquipmentAttribute(checklistConfigLabel(module, key, configs[key]))}</option>`).join('');
+            if (!resetType && Object.prototype.hasOwnProperty.call(configs, previousType)) typeSelect.value = previousType;
+            const config = configs[typeSelect.value];
+            const previousSection = sectionSelect.value;
+            const sections = config && Array.isArray(config.sections) ? config.sections : [];
+            sectionSelect.innerHTML = sections.map((section, index) => `<option value="${index}">${escapeEquipmentAttribute(section.name || `Seção ${index + 1}`)}</option>`).join('');
+            if (!resetSection && sections[Number(previousSection)]) sectionSelect.value = previousSection;
+            renderChecklistQuestionItems();
+        }
+
+        function renderChecklistQuestionItems() {
+            const list = document.getElementById('adminChecklistQuestionsList');
+            if (!list) return;
+            if (!isAdmin()) { list.innerHTML = ''; return; }
+            const { section } = getChecklistEditorSelection();
+            if (!section) { list.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Este checklist não possui seções configuradas.</p>'; return; }
+            const items = Array.isArray(section.items) ? section.items : [];
+            list.innerHTML = items.map((item, index) => `<div class="flex gap-2 items-center">
+                <input data-checklist-question-index="${index}" value="${escapeEquipmentAttribute(item)}" class="flex-1 min-w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white" aria-label="Pergunta ${index + 1}">
+                <button type="button" onclick="removeChecklistQuestion(${index})" class="px-3 py-2 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-md" aria-label="Excluir pergunta ${index + 1}">Excluir</button>
+            </div>`).join('') || '<p class="text-sm text-gray-500 dark:text-gray-400">Nenhuma pergunta nesta seção.</p>';
+        }
+
+        function captureChecklistQuestionInputs() {
+            const { section } = getChecklistEditorSelection();
+            if (!section) return;
+            section.items = Array.from(document.querySelectorAll('#adminChecklistQuestionsList [data-checklist-question-index]'))
+                .map(input => input.value.trim());
+        }
+
+        function addChecklistQuestion() {
+            if (!isAdmin()) return;
+            captureChecklistQuestionInputs();
+            const { section } = getChecklistEditorSelection();
+            if (!section) return;
+            section.items.push('');
+            renderChecklistQuestionItems();
+            const inputs = document.querySelectorAll('#adminChecklistQuestionsList [data-checklist-question-index]');
+            if (inputs.length) inputs[inputs.length - 1].focus();
+        }
+
+        function removeChecklistQuestion(index) {
+            if (!isAdmin()) return;
+            captureChecklistQuestionInputs();
+            const { section } = getChecklistEditorSelection();
+            if (!section || index < 0 || index >= section.items.length) return;
+            section.items.splice(index, 1);
+            renderChecklistQuestionItems();
+        }
+
+        async function saveChecklistQuestionEditor() {
+            if (!isAdmin()) { showCustomAlert('Acesso restrito ao administrador.'); return; }
+            if (!isOnline()) { showFloatingNotification('warning', 'Conecte-se à internet para salvar as perguntas.'); return; }
+            captureChecklistQuestionInputs();
+            const { section } = getChecklistEditorSelection();
+            if (!section) return;
+            section.items = section.items.map(item => item.trim()).filter(Boolean);
+            const button = document.getElementById('adminSaveChecklistQuestionsBtn');
+            const status = document.getElementById('adminChecklistQuestionsStatus');
+            if (button) button.disabled = true;
+            try {
+                const overrides = serializeChecklistQuestionConfigs();
+                const { error } = await checklistBackend.from('app_settings').upsert([{
+                    id: 'checklist_questions', cct: overrides.cct, irr: overrides.irr, updated_at: new Date().toISOString()
+                }]);
+                if (error) throw error;
+                localStorage.setItem('checklistQuestionOverrides', JSON.stringify(overrides));
+                renderChecklistQuestionItems();
+                if (status) status.textContent = 'Perguntas salvas para todos os usuários.';
+                showFloatingNotification('success', 'Perguntas do checklist atualizadas');
+            } catch (error) {
+                if (status) status.textContent = `Falha ao salvar: ${error.message || error}`;
+                showFloatingNotification('error', `Não foi possível salvar as perguntas: ${error.message || error}`);
+            } finally {
+                if (button) button.disabled = false;
             }
         }
 
@@ -7007,7 +7184,7 @@
                 updateDashboardStats();
             }
 
-            if (sectionId === 'admin') { populateEquipmentPageNameInputs(); renderAccessControls(); bindAdminActions(); loadAdminUsers(); }
+            if (sectionId === 'admin') { populateEquipmentPageNameInputs(); renderAccessControls(); bindAdminActions(); loadAdminUsers(); renderChecklistQuestionEditorOptions(true, true); }
             if (sectionId === 'historico_pneus') { initHistoricoPneus(); }
 
             // Reset nova inspeção section
@@ -8612,7 +8789,7 @@
                         itemDiv.className = 'p-4 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg';
                         itemDiv.innerHTML = `
                             <div class="flex items-center justify-between">
-                                <span class="text-gray-900 dark:text-white">${item}</span>
+                                <span class="text-gray-900 dark:text-white">${escapeEquipmentAttribute(item)}</span>
                                 <div class="flex space-x-3">
                                     <label class="inline-flex items-center">
                                         <input type="radio" name="irr_item_${index}" value="ok" onchange="updateIrrItemStatus(${index}, 'ok')" class="form-radio h-6 w-6 sm:h-4 sm:w-4 text-primary">
@@ -9504,7 +9681,7 @@
                         itemDiv.className = 'p-4 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg';
                         itemDiv.innerHTML = `
                             <div class="flex items-center justify-between">
-                                <span class="text-gray-900 dark:text-white">${item}</span>
+                                <span class="text-gray-900 dark:text-white">${escapeEquipmentAttribute(item)}</span>
                                 <div class="flex space-x-3">
                                     <label class="inline-flex items-center">
                                         <input type="radio" name="item_${index}" value="ok" onchange="updateItemStatus(${index}, 'ok')" class="form-radio h-6 w-6 sm:h-4 sm:w-4 text-primary">
@@ -11443,7 +11620,7 @@
                         const f = r.frota || '';
                         pushNotification('info', 'Novo equipamento', f ? `Equipamento ${f} cadastrado` : 'Equipamento cadastrado');
                     })
-                    .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, () => { loadEquipmentPageLabels(); })
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, () => { loadEquipmentPageLabels(); loadChecklistQuestionOverrides(); })
                     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'system_events' }, (payload) => {
                         const ev = payload && payload.new ? payload.new : {};
                         if ((ev.type || '') === 'force_refresh') {
