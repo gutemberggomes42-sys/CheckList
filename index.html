@@ -1236,10 +1236,10 @@
                 <div class="mb-6">
                     <div class="flex flex-wrap gap-3">
                         <button onclick="showCCTSubsection('inicio')" class="cct-sub-btn px-3 py-2 text-sm border-b-2 border-primary text-primary">Início</button>
-                        <button onclick="showCCTSubsection('plantio')" class="cct-sub-btn px-3 py-2 text-sm border-b-2 border-transparent text-gray-600 dark:text-gray-300">Plantio</button>
-                        <button onclick="showCCTSubsection('apoio_plantio')" class="cct-sub-btn px-3 py-2 text-sm border-b-2 border-transparent text-gray-600 dark:text-gray-300">Apoio Plantio</button>
-                        <button onclick="showCCTSubsection('safra')" class="cct-sub-btn px-3 py-2 text-sm border-b-2 border-transparent text-gray-600 dark:text-gray-300">Safra</button>
-                        <button onclick="showCCTSubsection('transporte_soja')" class="cct-sub-btn px-3 py-2 text-sm border-b-2 border-transparent text-gray-600 dark:text-gray-300">Transporte de Soja</button>
+                        <button id="cctPageTab_plantio" onclick="showCCTSubsection('plantio')" class="cct-sub-btn px-3 py-2 text-sm border-b-2 border-transparent text-gray-600 dark:text-gray-300">Plantio</button>
+                        <button id="cctPageTab_apoio_plantio" onclick="showCCTSubsection('apoio_plantio')" class="cct-sub-btn px-3 py-2 text-sm border-b-2 border-transparent text-gray-600 dark:text-gray-300">Apoio Plantio</button>
+                        <button id="cctPageTab_safra" onclick="showCCTSubsection('safra')" class="cct-sub-btn px-3 py-2 text-sm border-b-2 border-transparent text-gray-600 dark:text-gray-300">Safra</button>
+                        <button id="cctPageTab_transporte_soja" onclick="showCCTSubsection('transporte_soja')" class="cct-sub-btn px-3 py-2 text-sm border-b-2 border-transparent text-gray-600 dark:text-gray-300">Transporte de Soja</button>
                         <button onclick="showCCTSubsection('historico')" class="cct-sub-btn px-3 py-2 text-sm border-b-2 border-transparent text-gray-600 dark:text-gray-300">Histórico</button>
                         <button onclick="showCCTSubsection('analytics')" class="cct-sub-btn px-3 py-2 text-sm border-b-2 border-transparent text-gray-600 dark:text-gray-300">Analytics</button>
                         <button onclick="showCCTSubsection('relatorios')" class="cct-sub-btn px-3 py-2 text-sm border-b-2 border-transparent text-gray-600 dark:text-gray-300">Relatórios</button>
@@ -1398,6 +1398,11 @@
                         </button>
                     </div>
 
+                    <div class="mb-5 max-w-xl">
+                        <label for="checklistEquipmentPage" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Página para acompanhar este equipamento</label>
+                        <select id="checklistEquipmentPage" onchange="setChecklistEquipmentPage(this.value)" class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></select>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Você pode mudar a página; ao salvar, o equipamento ficará vinculado a ela.</p>
+                    </div>
                     <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                             <h3 class="text-lg font-semibold text-gray-900 dark:text-white" id="checklistTitle">Checklist</h3>
@@ -1756,6 +1761,20 @@
                             </label>
                         </div>
                         <button id="adminForceRefreshBtn" class="px-4 py-2 bg-red-600 text-white rounded-md">Forçar atualização dos usuários</button>
+                    </div>
+                    <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Nomes das páginas</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Altere os nomes exibidos nas abas e seletores. Apenas o administrador pode salvar.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                            <label class="text-sm text-gray-700 dark:text-gray-300">Plantio<input id="adminPageName_plantio" class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"></label>
+                            <label class="text-sm text-gray-700 dark:text-gray-300">Apoio Plantio<input id="adminPageName_apoio_plantio" class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"></label>
+                            <label class="text-sm text-gray-700 dark:text-gray-300">Safra<input id="adminPageName_safra" class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"></label>
+                            <label class="text-sm text-gray-700 dark:text-gray-300">Caminhões<input id="adminPageName_caminhoes" class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"></label>
+                            <label class="text-sm text-gray-700 dark:text-gray-300">Transporte de Soja<input id="adminPageName_transporte_soja" class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"></label>
+                            <label class="text-sm text-gray-700 dark:text-gray-300">Geral<input id="adminPageName_cct" class="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"></label>
+                        </div>
+                        <button id="adminSavePageNamesBtn" onclick="saveEquipmentPageLabels()" class="px-4 py-2 bg-primary text-white rounded-md">Salvar nomes</button>
+                        <div id="adminPageNamesStatus" class="mt-2 text-xs text-gray-600 dark:text-gray-300"></div>
                     </div>
                     <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Usuários</h3>
@@ -3275,6 +3294,7 @@
         let viewMode = 'global';
         let currentEquipment = '';
         let currentEquipmentSource = 'general';
+        let currentEquipmentPage = 'cct';
         let inspections = [];
         let equipments = [];
         let pendingEquipmentRegistration = null;
@@ -4834,6 +4854,7 @@
                 }
 
                 // Equipamentos e sementes em paralelo
+                await loadEquipmentPageLabels();
                 await loadEquipments();
                 updateStep('Equipamentos carregados e cache de frotas atualizado');
                 updateStep('Catálogo de equipamentos pronto para novos cadastros');
@@ -4954,7 +4975,7 @@
 
         function openEquipmentRegistrationForChecklist(type, frota) {
             saveCCTDraft();
-            pendingEquipmentRegistration = { tipo: type, frota: String(frota || '').trim() };
+            pendingEquipmentRegistration = { tipo: type, frota: String(frota || '').trim(), pagina: currentEquipmentPage || equipmentChecklistPage(type) };
             cancelEditEquipment();
             showSection('equipamentos');
             document.getElementById('equipmentFormTitle').textContent = 'Cadastre o equipamento para continuar';
@@ -4962,7 +4983,7 @@
             document.getElementById('equipFrota').value = String(frota || '').trim();
             document.getElementById('equipFrota').readOnly = true;
             document.getElementById('equipStatus').value = 'ativo';
-            document.getElementById('equipPagina').value = equipmentChecklistPage(type);
+            document.getElementById('equipPagina').value = pendingEquipmentRegistration.pagina;
             document.getElementById('equipDesc').focus();
             showFloatingNotification('warning', 'Cadastre este equipamento para liberar o salvamento do checklist. Seu checklist ficou salvo em rascunho.');
         }
@@ -4977,6 +4998,7 @@
             showCCTSubsection('inicio');
             resumeCCTDraftAutomatically = true;
             selectEquipment(pending.tipo);
+            setChecklistEquipmentPage(pending.pagina || equipmentChecklistPage(pending.tipo));
             const select = document.getElementById('frotaSelect');
             const custom = document.getElementById('frotaCustom');
             if (select) {
@@ -5054,6 +5076,14 @@
             if (!isEquipmentRegisteredForChecklist(currentEquipment, frota)) {
                 openEquipmentRegistrationForChecklist(currentEquipment, frota);
                 return;
+            }
+            const equipmentToAssign = findEquipmentForChecklist(currentEquipment, frota);
+            if (equipmentToAssign && getEquipmentPage(equipmentToAssign) !== currentEquipmentPage) {
+                const reassigned = await updateEquipmentPageById(equipmentUiId(equipmentToAssign), currentEquipmentPage);
+                if (!reassigned) {
+                    showCustomAlert('Não foi possível mudar a página do equipamento. O checklist não foi salvo.');
+                    return;
+                }
             }
 
             showLoading(true);
@@ -5479,10 +5509,12 @@
                  }, 300);
                  
              } else {
+                 const existingEquipment = (equipments || []).find(item => typeAliases(type).includes(item.tipo || item.setor) && String(item.frota) === String(frota));
                  showSection('cct_coque');
                  showCCTSubsection('inicio');
                  
                  selectEquipment(type);
+                 if (existingEquipment && getEquipmentPage(existingEquipment)) setChecklistEquipmentPage(getEquipmentPage(existingEquipment));
                  setTimeout(() => {
                      const sel = document.getElementById('frotaSelect');
                      if (sel) {
@@ -5539,13 +5571,95 @@
         }
 
         const equipmentPageLabels = {
-            cct: 'CCT • Geral',
-            plantio: 'CCT • Plantio',
-            apoio_plantio: 'CCT • Apoio Plantio',
-            safra: 'CCT • Safra',
-            caminhoes: 'CCT • Caminhões',
-            transporte_soja: 'CCT • Transporte de Soja'
+            cct: 'Geral',
+            plantio: 'Plantio',
+            apoio_plantio: 'Apoio Plantio',
+            safra: 'Safra',
+            caminhoes: 'Caminhões',
+            transporte_soja: 'Transporte de Soja'
         };
+        function equipmentPageDisplayLabel(page, withPrefix = true) {
+            const key = normalizeEquipmentPage(page);
+            const label = equipmentPageLabels[key] || key;
+            return withPrefix ? 'CCT • ' + label : label;
+        }
+
+        function updateEquipmentPageLabelsUI() {
+            ['equipPagina', 'checklistEquipmentPage'].forEach(id => {
+                const select = document.getElementById(id);
+                if (!select) return;
+                const value = select.value || (id === 'checklistEquipmentPage' ? currentEquipmentPage : '');
+                const firstOption = id === 'equipPagina' ? '<option value="">Selecione onde o equipamento ficará</option>' : '';
+                select.innerHTML = firstOption + Object.keys(equipmentPageLabels).map(page => `<option value="${page}">${escapeEquipmentAttribute(equipmentPageDisplayLabel(page))}</option>`).join('');
+                if (value && Object.prototype.hasOwnProperty.call(equipmentPageLabels, normalizeEquipmentPage(value))) select.value = normalizeEquipmentPage(value);
+            });
+            ['plantio', 'apoio_plantio', 'safra', 'transporte_soja'].forEach(page => {
+                const tab = document.getElementById('cctPageTab_' + page);
+                if (tab) tab.textContent = equipmentPageDisplayLabel(page, false);
+            });
+        }
+
+        function populateEquipmentPageNameInputs() {
+            Object.keys(equipmentPageLabels).forEach(page => {
+                const input = document.getElementById('adminPageName_' + page);
+                if (input) input.value = equipmentPageLabels[page];
+            });
+        }
+
+        async function loadEquipmentPageLabels() {
+            try {
+                const cached = JSON.parse(localStorage.getItem('equipmentPageLabels') || '{}');
+                Object.keys(equipmentPageLabels).forEach(page => {
+                    if (typeof cached[page] === 'string' && cached[page].trim()) equipmentPageLabels[page] = cached[page].trim();
+                });
+            } catch (_) {}
+            updateEquipmentPageLabelsUI();
+            populateEquipmentPageNameInputs();
+            if (!isOnline()) return;
+            try {
+                const result = await checklistBackend.from('app_settings').select('*').eq('id', 'equipment_page_labels').maybeSingle();
+                if (result.error) throw result.error;
+                const labels = result.data && result.data.labels;
+                if (labels && typeof labels === 'object') {
+                    Object.keys(equipmentPageLabels).forEach(page => {
+                        if (typeof labels[page] === 'string' && labels[page].trim()) equipmentPageLabels[page] = labels[page].trim();
+                    });
+                    localStorage.setItem('equipmentPageLabels', JSON.stringify(equipmentPageLabels));
+                    updateEquipmentPageLabelsUI();
+                    populateEquipmentPageNameInputs();
+                }
+            } catch (error) {
+                console.warn('Não foi possível carregar nomes das páginas:', error);
+            }
+        }
+
+        async function saveEquipmentPageLabels() {
+            if (!isAdmin()) { showCustomAlert('Acesso restrito ao administrador.'); return; }
+            if (!isOnline()) { showFloatingNotification('warning', 'Conecte-se à internet para salvar os nomes das páginas.'); return; }
+            const labels = {};
+            Object.keys(equipmentPageLabels).forEach(page => {
+                const value = (document.getElementById('adminPageName_' + page)?.value || '').trim();
+                labels[page] = value || equipmentPageLabels[page];
+            });
+            const button = document.getElementById('adminSavePageNamesBtn');
+            const status = document.getElementById('adminPageNamesStatus');
+            if (button) button.disabled = true;
+            try {
+                const { error } = await checklistBackend.from('app_settings').upsert([{ id: 'equipment_page_labels', labels, updated_at: new Date().toISOString() }]);
+                if (error) throw error;
+                Object.assign(equipmentPageLabels, labels);
+                localStorage.setItem('equipmentPageLabels', JSON.stringify(equipmentPageLabels));
+                updateEquipmentPageLabelsUI();
+                populateEquipmentPageNameInputs();
+                if (status) status.textContent = 'Nomes atualizados para todos os usuários.';
+                showFloatingNotification('success', 'Nomes das páginas salvos');
+            } catch (error) {
+                if (status) status.textContent = `Falha ao salvar: ${error.message || error}`;
+                showFloatingNotification('error', `Não foi possível salvar os nomes: ${error.message || error}`);
+            } finally {
+                if (button) button.disabled = false;
+            }
+        }
 
         function normalizeEquipmentPage(page) {
             const normalized = String(page || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s-]+/g, '_');
@@ -5565,17 +5679,23 @@
             const pages = { caminhao: 'caminhoes', trator: 'plantio', colhedora: 'plantio', plantadora: 'plantio', distribuidora: 'plantio', transbordo: 'plantio', reboque: 'cct', cobridores: 'apoio_plantio', tortao: 'plantio' };
             return pages[type] || 'cct';
         }
-        function isEquipmentRegisteredForChecklist(type, frota) {
+        function findEquipmentForChecklist(type, frota) {
             const aliases = typeAliases(type);
-            const targetPage = equipmentChecklistPage(type);
             const normalizedFleet = String(frota || '').trim().toUpperCase();
-            return (equipments || []).some(equipment => {
-                const page = getEquipmentPage(equipment);
-                return aliases.includes(equipment.tipo || equipment.setor)
+            const matches = (equipments || []).filter(equipment =>
+                aliases.includes(equipment.tipo || equipment.setor)
                     && String(equipment.frota || '').trim().toUpperCase() === normalizedFleet
-                    && (equipment.status || 'ativo') === 'ativo'
-                    && (currentEquipmentSource !== 'cct' || !page || page === 'cct' || page === targetPage);
-            });
+                    && (equipment.status || 'ativo') === 'ativo');
+            return matches.find(equipment => getEquipmentPage(equipment) === currentEquipmentPage) || matches[0] || null;
+        }
+        function isEquipmentRegisteredForChecklist(type, frota) {
+            return !!findEquipmentForChecklist(type, frota);
+        }
+        function setChecklistEquipmentPage(page) {
+            currentEquipmentPage = normalizeEquipmentPage(page) || equipmentChecklistPage(currentEquipment);
+            const select = document.getElementById('checklistEquipmentPage');
+            if (select) select.value = currentEquipmentPage;
+            saveCCTDraft();
         }
         function equipmentUiId(equipment) {
             return String(equipment && equipment.id || equipmentIdentityKey(equipment));
@@ -5595,7 +5715,7 @@
         }
 
         function equipmentPageOptions(selectedPage) {
-            return Object.keys(equipmentPageLabels).map(page => `<option value="${page}" ${selectedPage === page ? 'selected' : ''}>${equipmentPageLabels[page]}</option>`).join('');
+            return Object.keys(equipmentPageLabels).map(page => `<option value="${page}" ${selectedPage === page ? 'selected' : ''}>${escapeEquipmentAttribute(equipmentPageDisplayLabel(page))}</option>`).join('');
         }
 
         function equipmentTypeLabel(type) {
@@ -5627,18 +5747,21 @@
             const sel = document.getElementById('frotaSelect');
             if (!sel) return;
             const aliases = typeAliases(type);
-            const targetPage = equipmentChecklistPage(type);
-            const list = (equipments || []).filter(e => {
-                if (!aliases.includes(e.tipo || e.setor) || (e.status || 'ativo') !== 'ativo') return false;
-                if (currentEquipmentSource !== 'cct') return true;
-                const page = getEquipmentPage(e);
-                return !page || page === 'cct' || page === targetPage;
+            const previousValue = sel.value;
+            const list = (equipments || []).filter(e => aliases.includes(e.tipo || e.setor) && (e.status || 'ativo') === 'ativo');
+            const fleetOptions = new Map();
+            list.forEach(equipment => {
+                const fleet = String(equipment.frota || '').trim();
+                if (!fleet) return;
+                const existing = fleetOptions.get(fleet);
+                if (!existing || getEquipmentPage(equipment) === currentEquipmentPage) fleetOptions.set(fleet, equipment);
             });
             const opts = ['<option value="">Selecione uma frota</option>', '<option value="custom">Outro (digitar)</option>']
-                .concat(list.map(e => `<option value="${e.frota}">${e.frota}${e.descricao ? ' - ' + e.descricao : ''}</option>`));
+                .concat(Array.from(fleetOptions.values()).map(e => `<option value="${escapeEquipmentAttribute(e.frota)}">${escapeEquipmentAttribute(e.frota)}${e.descricao ? ' - ' + escapeEquipmentAttribute(e.descricao) : ''}</option>`));
             sel.innerHTML = opts.join('');
+            if (previousValue && Array.from(sel.options).some(option => option.value === previousValue)) sel.value = previousValue;
             const custom = document.getElementById('frotaCustom');
-            if (custom) custom.classList.add('hidden');
+            if (custom) custom.classList.toggle('hidden', sel.value !== 'custom');
         }
 
         function bindFrotaSelect() {
@@ -6216,11 +6339,19 @@
                 return;
             }
             const previousPage = getEquipmentPage(equipment);
+            const targetPage = normalizeEquipmentPage(pagina || '');
+            const duplicate = (equipments || []).find(item => item !== equipment
+                && String(item.frota || '').trim().toUpperCase() === String(equipment.frota || '').trim().toUpperCase()
+                && getEquipmentPage(item) === targetPage);
+            if (duplicate) {
+                showFloatingNotification('error', 'Esta frota já está cadastrada na página selecionada.');
+                return false;
+            }
             const wasLocalOnly = !!equipment._localOnly;
             const recordId = String(equipment.id || createEquipmentId());
             const updatedAt = new Date().toISOString();
             equipment.id = recordId;
-            equipment.pagina = pagina || '';
+            equipment.pagina = targetPage;
             equipment.updated_at = updatedAt;
             setCachedEquipments(equipments);
             populateEquipmentList();
@@ -6228,7 +6359,7 @@
                 try {
                     const result = equipment._localOnly
                         ? await checklistBackend.from('equipments').upsert([{ ...persistableEquipment(equipment), id: recordId }]).select()
-                        : await checklistBackend.from('equipments').update({ pagina: pagina || '', updated_at: updatedAt }).eq('id', recordId).select();
+                        : await checklistBackend.from('equipments').update({ pagina: targetPage, updated_at: updatedAt }).eq('id', recordId).select();
                     if (result.error) throw result.error;
                     delete equipment._localOnly;
                     setCachedEquipments(equipments);
@@ -6238,7 +6369,7 @@
                     setCachedEquipments(equipments);
                     populateEquipmentList();
                     showFloatingNotification('error', `Não foi possível salvar a página: ${error.message || error}`);
-                    return;
+                    return false;
                 }
             } else {
                 equipment._localOnly = true;
@@ -6260,6 +6391,7 @@
             if (document.getElementById('cct-sub-apoio_plantio') && !document.getElementById('cct-sub-apoio_plantio').classList.contains('hidden')) renderCCTApoioPlantio();
             if (document.getElementById('cct-sub-safra') && !document.getElementById('cct-sub-safra').classList.contains('hidden')) renderCCTSafra();
             if (document.getElementById('cct-sub-transporte_soja') && !document.getElementById('cct-sub-transporte_soja').classList.contains('hidden')) renderCCTTransporteSoja();
+            return true;
         }
 
         function populateEquipmentList() {
@@ -6498,7 +6630,7 @@
                 updateDashboardStats();
             }
 
-            if (sectionId === 'admin') { renderAccessControls(); bindAdminActions(); loadAdminUsers(); }
+            if (sectionId === 'admin') { populateEquipmentPageNameInputs(); renderAccessControls(); bindAdminActions(); loadAdminUsers(); }
             if (sectionId === 'historico_pneus') { initHistoricoPneus(); }
 
             // Reset nova inspeção section
@@ -8887,6 +9019,10 @@
             const cctSection = document.getElementById('cct_coque');
             currentEquipmentSource = cctSection && !cctSection.classList.contains('hidden') ? 'cct' : 'general';
             currentEquipment = type;
+            currentEquipmentPage = equipmentChecklistPage(type);
+            updateEquipmentPageLabelsUI();
+            const pageSelect = document.getElementById('checklistEquipmentPage');
+            if (pageSelect) pageSelect.value = currentEquipmentPage;
             document.getElementById('equipmentSelection').classList.add('hidden');
             document.getElementById('checklistForm').classList.remove('hidden');
             document.getElementById('checklistForm').classList.add('fade-in');
@@ -9108,6 +9244,7 @@
                     mecanico: document.getElementById('mecanico')?.value || '',
                     observacao: document.getElementById('observacao')?.value || '',
                     reforma: document.getElementById('reformaStatus')?.value || 'nao',
+                    pagina: currentEquipmentPage,
                     frotaSel: document.getElementById('frotaSelect')?.value || '',
                     frotaCustom: document.getElementById('frotaCustom')?.value || '',
                     items: Array.isArray(currentInspection.items) ? currentInspection.items.map(i => ({ id:i.id, status:i.status, note:i.note, photos:i.photos||[] })) : []
@@ -9126,6 +9263,7 @@
                 setVal('dataInspecao', draft.data||'');
                 setVal('mecanico', draft.mecanico||'');
                 setVal('observacao', draft.observacao||'');
+                if (draft.pagina) setChecklistEquipmentPage(draft.pagina);
                 const refEl = document.getElementById('reformaStatus'); if (refEl) refEl.value = draft.reforma||'nao';
                 const fSel = document.getElementById('frotaSelect');
                 const fCus = document.getElementById('frotaCustom');
@@ -10919,6 +11057,7 @@
                         const f = r.frota || '';
                         pushNotification('info', 'Novo equipamento', f ? `Equipamento ${f} cadastrado` : 'Equipamento cadastrado');
                     })
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, () => { loadEquipmentPageLabels(); })
                     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'system_events' }, (payload) => {
                         const ev = payload && payload.new ? payload.new : {};
                         if ((ev.type || '') === 'force_refresh') {

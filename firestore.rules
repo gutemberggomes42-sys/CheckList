@@ -47,12 +47,18 @@ service cloud.firestore {
       allow delete: if admin() || (signedIn() && userId == request.auth.uid);
     }
 
+    match /app_settings/{settingId} {
+      allow read: if signedIn();
+      allow create, update, delete: if admin();
+    }
+
     match /{collection}/{documentId} {
       allow read: if signedIn() && collection != 'users' && collection != 'access_controls'
-        && collection != 'system_events' && collection != '_broadcasts' && collection != '_presence';
+        && collection != 'system_events' && collection != '_broadcasts' && collection != '_presence'
+        && collection != 'app_settings';
       allow create, update, delete: if approved() && collection != 'users'
         && collection != 'access_controls' && collection != 'system_events'
-        && collection != '_broadcasts' && collection != '_presence';
+        && collection != '_broadcasts' && collection != '_presence' && collection != 'app_settings';
     }
   }
 }
