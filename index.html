@@ -1789,6 +1789,20 @@
                         <div id="adminPageNamesStatus" class="mt-2 text-xs text-gray-600 dark:text-gray-300"></div>
                     </div>
                     <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Páginas de lançamento do CCT</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Desmarque as páginas que não serão usadas agora. Elas deixam de aparecer para lançamento até o administrador ativá-las novamente.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input id="adminPageVisible_cct" type="checkbox" class="form-checkbox"><span>Geral</span></label>
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input id="adminPageVisible_plantio" type="checkbox" class="form-checkbox"><span>Plantio</span></label>
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input id="adminPageVisible_apoio_plantio" type="checkbox" class="form-checkbox"><span>Apoio Plantio</span></label>
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input id="adminPageVisible_safra" type="checkbox" class="form-checkbox"><span>Safra</span></label>
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input id="adminPageVisible_caminhoes" type="checkbox" class="form-checkbox"><span>Caminhões</span></label>
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input id="adminPageVisible_transporte_soja" type="checkbox" class="form-checkbox"><span>Transporte de Soja</span></label>
+                        </div>
+                        <button id="adminSavePageVisibilityBtn" onclick="saveEquipmentPageVisibility()" class="px-4 py-2 bg-primary text-white rounded-md">Salvar páginas visíveis</button>
+                        <div id="adminPageVisibilityStatus" class="mt-2 text-xs text-gray-600 dark:text-gray-300"></div>
+                    </div>
+                    <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Usuários</h3>
                         <div class="mb-4 p-4 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20">
                             <label for="adminPromoteUserSelect" class="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">Adicionar outro administrador</label>
@@ -5611,6 +5625,22 @@
             caminhoes: 'Caminhões',
             transporte_soja: 'Transporte de Soja'
         };
+        const defaultEquipmentPageVisibility = { cct: false, plantio: false, apoio_plantio: false, safra: true, caminhoes: false, transporte_soja: false };
+        const equipmentPageVisibility = { ...defaultEquipmentPageVisibility };
+
+        function isEquipmentPageVisible(page) {
+            const key = normalizeEquipmentPage(page);
+            return Object.prototype.hasOwnProperty.call(equipmentPageVisibility, key) && equipmentPageVisibility[key] === true;
+        }
+
+        function firstVisibleEquipmentPage() {
+            return Object.keys(equipmentPageVisibility).find(page => equipmentPageVisibility[page]) || 'safra';
+        }
+
+        function equipmentPageOptions(selectedPage) {
+            return Object.keys(equipmentPageLabels).filter(isEquipmentPageVisible).map(page => `<option value="${page}" ${selectedPage === page ? 'selected' : ''}>${escapeEquipmentAttribute(equipmentPageDisplayLabel(page))}</option>`).join('');
+        }
+
         function equipmentPageDisplayLabel(page, withPrefix = true) {
             const key = normalizeEquipmentPage(page);
             const label = equipmentPageLabels[key] || key;
@@ -5623,12 +5653,15 @@
                 if (!select) return;
                 const value = select.value || (id === 'checklistEquipmentPage' ? currentEquipmentPage : '');
                 const firstOption = id === 'equipPagina' ? '<option value="">Selecione onde o equipamento ficará</option>' : '';
-                select.innerHTML = firstOption + Object.keys(equipmentPageLabels).map(page => `<option value="${page}">${escapeEquipmentAttribute(equipmentPageDisplayLabel(page))}</option>`).join('');
+                select.innerHTML = firstOption + Object.keys(equipmentPageLabels).filter(isEquipmentPageVisible).map(page => `<option value="${page}">${escapeEquipmentAttribute(equipmentPageDisplayLabel(page))}</option>`).join('');
                 if (value && Object.prototype.hasOwnProperty.call(equipmentPageLabels, normalizeEquipmentPage(value))) select.value = normalizeEquipmentPage(value);
             });
             ['plantio', 'apoio_plantio', 'safra', 'transporte_soja'].forEach(page => {
                 const tab = document.getElementById('cctPageTab_' + page);
-                if (tab) tab.textContent = equipmentPageDisplayLabel(page, false);
+                if (tab) {
+                    tab.textContent = equipmentPageDisplayLabel(page, false);
+                    tab.classList.toggle('hidden', !isEquipmentPageVisible(page));
+                }
             });
         }
 
@@ -5636,6 +5669,8 @@
             Object.keys(equipmentPageLabels).forEach(page => {
                 const input = document.getElementById('adminPageName_' + page);
                 if (input) input.value = equipmentPageLabels[page];
+                const visibilityInput = document.getElementById('adminPageVisible_' + page);
+                if (visibilityInput) visibilityInput.checked = equipmentPageVisibility[page] === true;
             });
         }
 
@@ -5645,9 +5680,14 @@
                 Object.keys(equipmentPageLabels).forEach(page => {
                     if (typeof cached[page] === 'string' && cached[page].trim()) equipmentPageLabels[page] = cached[page].trim();
                 });
+                const cachedVisibility = JSON.parse(localStorage.getItem('equipmentPageVisibility') || '{}');
+                Object.keys(equipmentPageVisibility).forEach(page => {
+                    if (typeof cachedVisibility[page] === 'boolean') equipmentPageVisibility[page] = cachedVisibility[page];
+                });
             } catch (_) {}
             updateEquipmentPageLabelsUI();
             populateEquipmentPageNameInputs();
+            applyEquipmentPageVisibilityToCurrentView();
             if (!isOnline()) return;
             try {
                 const result = await checklistBackend.from('app_settings').select('*').eq('id', 'equipment_page_labels').maybeSingle();
@@ -5657,10 +5697,18 @@
                     Object.keys(equipmentPageLabels).forEach(page => {
                         if (typeof labels[page] === 'string' && labels[page].trim()) equipmentPageLabels[page] = labels[page].trim();
                     });
-                    localStorage.setItem('equipmentPageLabels', JSON.stringify(equipmentPageLabels));
-                    updateEquipmentPageLabelsUI();
-                    populateEquipmentPageNameInputs();
                 }
+                const visibility = result.data && result.data.visibility;
+                if (visibility && typeof visibility === 'object') {
+                    Object.keys(equipmentPageVisibility).forEach(page => {
+                        if (typeof visibility[page] === 'boolean') equipmentPageVisibility[page] = visibility[page];
+                    });
+                }
+                localStorage.setItem('equipmentPageLabels', JSON.stringify(equipmentPageLabels));
+                localStorage.setItem('equipmentPageVisibility', JSON.stringify(equipmentPageVisibility));
+                updateEquipmentPageLabelsUI();
+                populateEquipmentPageNameInputs();
+                applyEquipmentPageVisibilityToCurrentView();
             } catch (error) {
                 console.warn('Não foi possível carregar nomes das páginas:', error);
             }
@@ -5678,7 +5726,7 @@
             const status = document.getElementById('adminPageNamesStatus');
             if (button) button.disabled = true;
             try {
-                const { error } = await checklistBackend.from('app_settings').upsert([{ id: 'equipment_page_labels', labels, updated_at: new Date().toISOString() }]);
+                const { error } = await checklistBackend.from('app_settings').upsert([{ id: 'equipment_page_labels', labels, visibility: { ...equipmentPageVisibility }, updated_at: new Date().toISOString() }]);
                 if (error) throw error;
                 Object.assign(equipmentPageLabels, labels);
                 localStorage.setItem('equipmentPageLabels', JSON.stringify(equipmentPageLabels));
@@ -5691,6 +5739,53 @@
                 showFloatingNotification('error', `Não foi possível salvar os nomes: ${error.message || error}`);
             } finally {
                 if (button) button.disabled = false;
+            }
+        }
+
+        async function saveEquipmentPageVisibility() {
+            if (!isAdmin()) { showCustomAlert('Acesso restrito ao administrador.'); return; }
+            if (!isOnline()) { showFloatingNotification('warning', 'Conecte-se à internet para salvar as páginas visíveis.'); return; }
+            const visibility = {};
+            Object.keys(equipmentPageVisibility).forEach(page => {
+                visibility[page] = !!document.getElementById('adminPageVisible_' + page)?.checked;
+            });
+            if (!Object.values(visibility).some(Boolean)) {
+                showCustomAlert('Mantenha pelo menos uma página de lançamento ativada.');
+                return;
+            }
+            const button = document.getElementById('adminSavePageVisibilityBtn');
+            const status = document.getElementById('adminPageVisibilityStatus');
+            if (button) button.disabled = true;
+            try {
+                const { error } = await checklistBackend.from('app_settings').upsert([{ id: 'equipment_page_labels', labels: { ...equipmentPageLabels }, visibility, updated_at: new Date().toISOString() }]);
+                if (error) throw error;
+                Object.assign(equipmentPageVisibility, visibility);
+                localStorage.setItem('equipmentPageVisibility', JSON.stringify(equipmentPageVisibility));
+                updateEquipmentPageLabelsUI();
+                populateEquipmentPageNameInputs();
+                applyEquipmentPageVisibilityToCurrentView();
+                if (status) status.textContent = 'Páginas de lançamento atualizadas para todos os usuários.';
+                showFloatingNotification('success', 'Páginas de lançamento salvas');
+            } catch (error) {
+                if (status) status.textContent = `Falha ao salvar: ${error.message || error}`;
+                showFloatingNotification('error', `Não foi possível salvar as páginas: ${error.message || error}`);
+            } finally {
+                if (button) button.disabled = false;
+            }
+        }
+
+        function applyEquipmentPageVisibilityToCurrentView() {
+            const activeCCTSub = ['plantio', 'apoio_plantio', 'safra', 'transporte_soja'].find(page => {
+                const section = document.getElementById('cct-sub-' + page);
+                return section && !section.classList.contains('hidden');
+            });
+            if (activeCCTSub && !isEquipmentPageVisible(activeCCTSub)) showCCTSubsection('inicio');
+            const form = document.getElementById('checklistForm');
+            if (form && !form.classList.contains('hidden') && !isEquipmentPageVisible(currentEquipmentPage)) {
+                currentEquipmentPage = firstVisibleEquipmentPage();
+                const pageSelect = document.getElementById('checklistEquipmentPage');
+                if (pageSelect) pageSelect.value = currentEquipmentPage;
+                saveCCTDraft();
             }
         }
 
@@ -5710,7 +5805,8 @@
         }
         function equipmentChecklistPage(type) {
             const pages = { caminhao: 'caminhoes', trator: 'plantio', colhedora: 'plantio', plantadora: 'plantio', distribuidora: 'plantio', transbordo: 'plantio', reboque: 'cct', cobridores: 'apoio_plantio', tortao: 'plantio' };
-            return pages[type] || 'cct';
+            const preferred = pages[type] || 'cct';
+            return isEquipmentPageVisible(preferred) ? preferred : firstVisibleEquipmentPage();
         }
         function findEquipmentForChecklist(type, frota) {
             const aliases = typeAliases(type);
@@ -5725,7 +5821,8 @@
             return !!findEquipmentForChecklist(type, frota);
         }
         function setChecklistEquipmentPage(page) {
-            currentEquipmentPage = normalizeEquipmentPage(page) || equipmentChecklistPage(currentEquipment);
+            const normalized = normalizeEquipmentPage(page);
+            currentEquipmentPage = isEquipmentPageVisible(normalized) ? normalized : equipmentChecklistPage(currentEquipment);
             const select = document.getElementById('checklistEquipmentPage');
             if (select) select.value = currentEquipmentPage;
             saveCCTDraft();
@@ -5748,7 +5845,7 @@
         }
 
         function equipmentPageOptions(selectedPage) {
-            return Object.keys(equipmentPageLabels).map(page => `<option value="${page}" ${selectedPage === page ? 'selected' : ''}>${escapeEquipmentAttribute(equipmentPageDisplayLabel(page))}</option>`).join('');
+            return Object.keys(equipmentPageLabels).filter(isEquipmentPageVisible).map(page => `<option value="${page}" ${selectedPage === page ? 'selected' : ''}>${escapeEquipmentAttribute(equipmentPageDisplayLabel(page))}</option>`).join('');
         }
 
         function equipmentTypeLabel(type) {
@@ -6872,6 +6969,10 @@
 
         function showCCTSubsection(sub) {
             viewMode = 'cct';
+            if (['plantio', 'apoio_plantio', 'safra', 'transporte_soja'].includes(sub) && !isEquipmentPageVisible(sub)) {
+                showCCTSubsection('inicio');
+                return;
+            }
             if (isRestrictedUser()) {
                 const email = ((currentUser||getCachedUser()||{}).email || '').toLowerCase();
                 const allow = getAllowedSubsectionsFor(email, 'cct_coque');
