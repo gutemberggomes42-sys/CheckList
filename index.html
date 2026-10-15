@@ -1790,7 +1790,12 @@
                     </div>
                     <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Páginas de lançamento do CCT</h3>
-                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Desmarque as páginas que não serão usadas agora. Elas deixam de aparecer para lançamento até o administrador ativá-las novamente.</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Esta configuração é global: aplique uma vez para todos os usuários cadastrados. Usuários conectados recebem a alteração automaticamente; os demais recebem ao abrir o sistema.</p>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <button type="button" onclick="applyEquipmentPageVisibilityPreset('safra')" class="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md">Aplicar somente Safra para todos</button>
+                            <button type="button" onclick="applyEquipmentPageVisibilityPreset('all')" class="px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm rounded-md">Ativar todas para todos</button>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Ou escolha manualmente abaixo e aplique em um único passo:</p>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                             <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input id="adminPageVisible_cct" type="checkbox" class="form-checkbox"><span>Geral</span></label>
                             <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input id="adminPageVisible_plantio" type="checkbox" class="form-checkbox"><span>Plantio</span></label>
@@ -1799,7 +1804,7 @@
                             <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input id="adminPageVisible_caminhoes" type="checkbox" class="form-checkbox"><span>Caminhões</span></label>
                             <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"><input id="adminPageVisible_transporte_soja" type="checkbox" class="form-checkbox"><span>Transporte de Soja</span></label>
                         </div>
-                        <button id="adminSavePageVisibilityBtn" onclick="saveEquipmentPageVisibility()" class="px-4 py-2 bg-primary text-white rounded-md">Salvar páginas visíveis</button>
+                        <button id="adminSavePageVisibilityBtn" onclick="saveEquipmentPageVisibility()" class="px-4 py-2 bg-primary text-white rounded-md">Aplicar para todos os usuários</button>
                         <div id="adminPageVisibilityStatus" class="mt-2 text-xs text-gray-600 dark:text-gray-300"></div>
                     </div>
                     <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
@@ -5764,14 +5769,23 @@
                 updateEquipmentPageLabelsUI();
                 populateEquipmentPageNameInputs();
                 applyEquipmentPageVisibilityToCurrentView();
-                if (status) status.textContent = 'Páginas de lançamento atualizadas para todos os usuários.';
-                showFloatingNotification('success', 'Páginas de lançamento salvas');
+                if (status) status.textContent = 'Configuração global salva. Usuários conectados recebem a alteração em tempo real.';
+                showFloatingNotification('success', 'Páginas atualizadas para todos os usuários');
             } catch (error) {
                 if (status) status.textContent = `Falha ao salvar: ${error.message || error}`;
                 showFloatingNotification('error', `Não foi possível salvar as páginas: ${error.message || error}`);
             } finally {
                 if (button) button.disabled = false;
             }
+        }
+
+        async function applyEquipmentPageVisibilityPreset(preset) {
+            if (!isAdmin()) { showCustomAlert('Acesso restrito ao administrador.'); return; }
+            Object.keys(equipmentPageVisibility).forEach(page => {
+                const checkbox = document.getElementById('adminPageVisible_' + page);
+                if (checkbox) checkbox.checked = preset === 'all' || (preset === 'safra' && page === 'safra');
+            });
+            await saveEquipmentPageVisibility();
         }
 
         function applyEquipmentPageVisibilityToCurrentView() {
