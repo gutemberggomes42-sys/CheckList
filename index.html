@@ -646,6 +646,18 @@
 
         <!-- Floating Notification Container -->
         <div id="notificationContainer" class="fixed top-4 right-4 z-50 space-y-3 pointer-events-none"></div>
+        <div id="pendingUsersApprovalModal" class="hidden fixed inset-0 bg-black bg-opacity-70 z-[80] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="pendingUsersApprovalTitle">
+            <div class="w-full max-w-xl max-h-[85vh] overflow-hidden rounded-2xl bg-white dark:bg-gray-800 shadow-2xl border border-gray-200 dark:border-gray-700">
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h2 id="pendingUsersApprovalTitle" class="text-xl font-bold text-gray-900 dark:text-white">Novos usuários aguardando aprovação</h2>
+                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Revise os cadastros abaixo e escolha quem pode acessar o sistema.</p>
+                </div>
+                <div id="pendingUsersApprovalList" class="p-4 space-y-3 overflow-y-auto max-h-[55vh]"></div>
+                <div class="p-4 flex justify-end border-t border-gray-200 dark:border-gray-700">
+                    <button onclick="closePendingUsersApprovalModal()" class="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white">Fechar</button>
+                </div>
+            </div>
+        </div>
         <div id="mobileActionBar" class="fixed bottom-0 inset-x-0 z-40 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between sm:hidden hidden">
             <div class="flex items-center gap-3">
                 <button onclick="backToSelection()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300">Voltar</button>
@@ -4453,7 +4465,14 @@
                 if (pm) pm.classList.remove('hidden');
             }
             loadAccessControls().then(() => applyAccessControls());
-            ensureUserRecord().then(() => { startPresence(); });
+            ensureUserRecord().then(record => {
+                startPresence();
+                if (record && record.role === 'admin') {
+                    const adminButton = document.getElementById('adminNavBtn');
+                    if (adminButton) adminButton.classList.remove('hidden');
+                    checkPendingUserApprovals();
+                }
+            });
             loadInitialData();
             setupRealtime();
             if (isAdmin()) checkPendingUserApprovals();
@@ -6495,7 +6514,7 @@
 
                 if (error) throw error;
 
-                notifyAdminAboutPendingUsers(users || []);
+                notifyAdminAboutPendingUsers(users || [], true);
 
                 if (!users || users.length === 0) {
                     list.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">Nenhum usuário encontrado.</p>';
@@ -6504,7 +6523,7 @@
 
                 list.innerHTML = users.map(u => {
                     const isApproved = u.approved === true || u.ativo === true; // Handle both schemas
-                    const isAdminUser = u.role === 'admin';
+                    const isAdminUser = u.role === 'admin' || String(u.email || '').toLowerCase() === 'gutemberggg10@gmail.com';
                     return `
                     <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                         <div>
@@ -6518,10 +6537,13 @@
                             <span class="px-2 py-1 text-xs rounded-full ${isApproved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
                                 ${isApproved ? 'Aprovado' : 'Pendente'}
                             </span>
-                            <button onclick="toggleUserApproval('${u.id || u.user_id}', ${!isApproved})" 
+                            <button onclick="toggleUserApproval('${escapeEquipmentAttribute(u.id || u.user_id)}', ${!isApproved})"
                                 class="px-3 py-1 text-sm ${isApproved ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-green-100 text-green-700 hover:bg-green-200'} rounded-md transition-colors">
                                 ${isApproved ? 'Revogar' : 'Aprovar'}
                             </button>
+                            ${isAdminUser
+                                ? '<span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">Administrador</span>'
+                                : `<button onclick="setUserAdminRole('${escapeEquipmentAttribute(u.id || u.user_id)}', true)" class="px-3 py-1 text-sm bg-purple-600 text-white rounded-md">Tornar admin</button>`}
                         </div>
                     </div>
                     `;
@@ -6542,21 +6564,91 @@
             }
         }
 
-        function notifyAdminAboutPendingUsers(users) {
+        function notifyAdminAboutPendingUsers(users, syncCurrentModal = false) {
             if (!isAdmin() || !Array.isArray(users)) return;
             const { key, ids } = adminNotifiedPendingUserIds();
             const pending = users.filter(user => user && user.approved !== true && user.ativo !== true && (user.id || user.uid || user.user_id));
+            if (syncCurrentModal) {
+                const pendingIds = new Set(pending.map(user => String(user.id || user.uid || user.user_id)));
+                pendingApprovalModalUsers = pendingApprovalModalUsers.filter(user => pendingIds.has(String(user.id || user.uid || user.user_id)));
+            }
             const unseen = pending.filter(user => !ids.has(String(user.id || user.uid || user.user_id)));
-            if (!unseen.length) return;
 
             unseen.forEach(user => {
                 const id = String(user.id || user.uid || user.user_id);
                 ids.add(id);
-                const name = String(user.name || user.displayName || user.email || 'Novo usuário');
-                pushNotification('warning', 'Usuário aguardando aprovação', `${name} precisa da sua aprovação.`);
-                showFloatingNotification('warning', `Novo usuário aguardando aprovação: ${name}`);
+                if (!pendingApprovalModalUsers.some(item => String(item.id || item.uid || item.user_id) === id)) pendingApprovalModalUsers.push(user);
             });
-            try { localStorage.setItem(key, JSON.stringify(Array.from(ids))); } catch (_) {}
+            if (unseen.length) {
+                try { localStorage.setItem(key, JSON.stringify(Array.from(ids))); } catch (_) {}
+            }
+            renderPendingUsersApprovalModal();
+        }
+
+        let pendingApprovalModalUsers = [];
+
+        function renderPendingUsersApprovalModal() {
+            if (!isAdmin()) return;
+            const modal = document.getElementById('pendingUsersApprovalModal');
+            const list = document.getElementById('pendingUsersApprovalList');
+            if (!modal || !list) return;
+            pendingApprovalModalUsers = pendingApprovalModalUsers.filter(user => user && user.approved !== true && user.ativo !== true);
+            if (!pendingApprovalModalUsers.length) {
+                modal.classList.add('hidden');
+                return;
+            }
+            list.innerHTML = pendingApprovalModalUsers.map(user => {
+                const id = String(user.id || user.uid || user.user_id || '');
+                const name = String(user.name || user.displayName || user.email || 'Novo usuário');
+                const email = String(user.email || 'Email não informado');
+                return `<div class="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl border border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/20">
+                    <div class="min-w-0"><p class="font-semibold text-gray-900 dark:text-white">${escapeEquipmentAttribute(name)}</p><p class="text-sm text-gray-600 dark:text-gray-300 break-all">${escapeEquipmentAttribute(email)}</p></div>
+                    <button type="button" data-approve-pending-user="${escapeEquipmentAttribute(id)}" class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded-md">Aprovar acesso</button>
+                </div>`;
+            }).join('');
+            list.querySelectorAll('[data-approve-pending-user]').forEach(button => button.addEventListener('click', () => approvePendingUserFromModal(button.dataset.approvePendingUser)));
+            modal.classList.remove('hidden');
+        }
+
+        function closePendingUsersApprovalModal() {
+            const modal = document.getElementById('pendingUsersApprovalModal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        async function approvePendingUserFromModal(id) {
+            if (!isAdmin() || !id) return;
+            showLoading(true);
+            try {
+                const { error } = await checklistBackend.from('users').update({ approved: true }).eq('id', id);
+                if (error) throw error;
+                try { await checklistBackend.from('usuarios').update({ ativo: true }).eq('id', id); } catch (_) {}
+                pendingApprovalModalUsers = pendingApprovalModalUsers.filter(user => String(user.id || user.uid || user.user_id) !== String(id));
+                renderPendingUsersApprovalModal();
+                showFloatingNotification('success', 'Usuário aprovado');
+                loadAdminUsers();
+            } catch (error) {
+                showCustomAlert(`Não foi possível aprovar o usuário: ${error.message || error}`);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function setUserAdminRole(id, makeAdmin) {
+            if (!isAdmin() || !id) { showCustomAlert('Acesso restrito ao administrador.'); return; }
+            const action = makeAdmin ? 'tornar este usuário administrador' : 'remover o perfil de administrador deste usuário';
+            if (!confirm(`Deseja ${action}?`)) return;
+            showLoading(true);
+            try {
+                const changes = makeAdmin ? { role: 'admin', approved: true } : { role: 'tecnico' };
+                const { error } = await checklistBackend.from('users').update(changes).eq('id', id);
+                if (error) throw error;
+                showFloatingNotification('success', makeAdmin ? 'Usuário promovido a administrador' : 'Perfil de administrador removido');
+                loadAdminUsers();
+            } catch (error) {
+                showCustomAlert(`Não foi possível alterar o perfil: ${error.message || error}`);
+            } finally {
+                showLoading(false);
+            }
         }
 
         async function checkPendingUserApprovals() {
@@ -6564,7 +6656,7 @@
             try {
                 const { data, error } = await checklistBackend.from('users').select('*');
                 if (error) throw error;
-                notifyAdminAboutPendingUsers(data || []);
+                notifyAdminAboutPendingUsers(data || [], true);
             } catch (error) {
                 console.warn('Não foi possível verificar usuários aguardando aprovação:', error);
             }
@@ -9768,7 +9860,9 @@
 
         function isAdmin() {
             const u = currentUser || getCachedUser();
-            return !!(u && u.email === 'gutemberggg10@gmail.com');
+            const record = getCachedUserRecord();
+            const email = String(u && u.email || '').toLowerCase();
+            return email === 'gutemberggg10@gmail.com' || !!(record && record.email === email && record.role === 'admin');
         }
 
         let accessControls = [];

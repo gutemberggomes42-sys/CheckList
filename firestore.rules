@@ -6,7 +6,9 @@ service cloud.firestore {
     }
 
     function admin() {
-      return signedIn() && request.auth.token.email == 'gutemberggg10@gmail.com';
+      return signedIn() && (request.auth.token.email == 'gutemberggg10@gmail.com'
+        || (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin'));
     }
 
     function approved() {
@@ -19,10 +21,12 @@ service cloud.firestore {
       allow read: if admin() || (signedIn() && resource.data.email == request.auth.token.email);
       allow create: if admin() || (signedIn() && userId == request.auth.uid
         && request.resource.data.email == request.auth.token.email
-        && request.resource.data.approved == false);
+        && request.resource.data.approved == false
+        && (!('role' in request.resource.data) || request.resource.data.role == 'tecnico'));
       allow update: if admin() || (signedIn() && userId == request.auth.uid
         && request.resource.data.email == request.auth.token.email
-        && request.resource.data.approved == resource.data.approved);
+        && request.resource.data.approved == resource.data.approved
+        && request.resource.data.get('role', '') == resource.data.get('role', ''));
       allow delete: if admin();
     }
 

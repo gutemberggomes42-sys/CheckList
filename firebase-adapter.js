@@ -198,7 +198,15 @@
                 if (h.kind === 'postgres_changes') {
                     const table = h.filter.table;
                     if (!table) continue;
-                    if (table === 'users' && (!auth.currentUser || auth.currentUser.email !== 'gutemberggg10@gmail.com')) continue;
+                    if (table === 'users') {
+                        if (!auth.currentUser) continue;
+                        if (auth.currentUser.email !== 'gutemberggg10@gmail.com') {
+                            try {
+                                const profile = await db.collection('users').doc(auth.currentUser.uid).get();
+                                if (!profile.exists || profile.data().role !== 'admin') continue;
+                            } catch (_) { continue; }
+                        }
+                    }
                     let first = true;
                     this.unsubs.push(db.collection(table).onSnapshot(snap => {
                         if (first) { first = false; return; }
