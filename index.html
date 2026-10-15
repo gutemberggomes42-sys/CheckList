@@ -2297,6 +2297,19 @@
                             </select>
                         </div>
                     </div>
+                    <div class="max-w-md mb-6">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2" for="equipPagina">Página do sistema</label>
+                        <select id="equipPagina" required class="w-full px-3 py-2 text-base border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="">Selecione onde o equipamento ficará</option>
+                            <option value="cct">CCT • Geral</option>
+                            <option value="plantio">CCT • Plantio</option>
+                            <option value="apoio_plantio">CCT • Apoio Plantio</option>
+                            <option value="safra">CCT • Safra</option>
+                            <option value="caminhoes">CCT • Caminhões (checklist)</option>
+                            <option value="transporte_soja">CCT • Transporte de Soja</option>
+                        </select>
+                        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Plantio e Safra mostram os equipamentos nas respectivas abas. Caminhões limita as frotas do checklist de caminhão no CCT.</p>
+                    </div>
                     <div class="flex gap-4">
                         <button onclick="addEquipment()" class="px-6 py-3 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors duration-200 font-medium">Salvar</button>
                         <button onclick="populateEquipmentList()" class="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">Atualizar Lista</button>
@@ -3256,6 +3269,7 @@
         let currentUser = null;
         let viewMode = 'global';
         let currentEquipment = '';
+        let currentEquipmentSource = 'general';
         let inspections = [];
         let equipments = [];
         let realtimeChannel = null;
@@ -3404,7 +3418,7 @@
             if (toInsert.length === 0) return;
             const { error: insErr } = await checklistBackend
                 .from('equipments')
-                .insert(toInsert);
+                .insert(toInsert.map(item => ({ ...item, updated_at: item.updated_at || new Date().toISOString() })));
             if (!insErr) {
                 await loadEquipments();
                 populateEquipmentList();
@@ -3435,7 +3449,7 @@
             if (toInsert.length === 0) return;
             const { error: insErr } = await checklistBackend
                 .from('equipments')
-                .insert(toInsert);
+                .insert(toInsert.map(item => ({ ...item, updated_at: item.updated_at || new Date().toISOString() })));
             if (!insErr) {
                 await loadEquipments();
                 populateEquipmentList();
@@ -3485,7 +3499,7 @@
             if (toInsert.length === 0) return;
             const { error: insErr } = await checklistBackend
                 .from('equipments')
-                .insert(toInsert);
+                .insert(toInsert.map(item => ({ ...item, updated_at: item.updated_at || new Date().toISOString() })));
             if (!insErr) {
                 await loadEquipments();
                 populateEquipmentList();
@@ -3511,7 +3525,7 @@
             if (toInsert.length === 0) return;
             const { error: insErr } = await checklistBackend
                 .from('equipments')
-                .insert(toInsert);
+                .insert(toInsert.map(item => ({ ...item, updated_at: item.updated_at || new Date().toISOString() })));
             if (!insErr) {
                 await loadEquipments();
                 populateEquipmentList();
@@ -3541,7 +3555,7 @@
             if (toInsert.length === 0) return;
             const { error: insErr } = await checklistBackend
                 .from('equipments')
-                .insert(toInsert);
+                .insert(toInsert.map(item => ({ ...item, updated_at: item.updated_at || new Date().toISOString() })));
             if (!insErr) {
                 await loadEquipments();
                 populateEquipmentList();
@@ -3652,7 +3666,7 @@
             if (toInsert.length === 0) return;
             const { error: insErr } = await checklistBackend
                 .from('equipments')
-                .insert(toInsert);
+                .insert(toInsert.map(item => ({ ...item, updated_at: item.updated_at || new Date().toISOString() })));
             if (!insErr) {
                 await loadEquipments();
                 populateEquipmentList();
@@ -3721,7 +3735,7 @@
             if (toInsert.length === 0) return;
             const { error: insErr } = await checklistBackend
                 .from('equipments')
-                .insert(toInsert);
+                .insert(toInsert.map(item => ({ ...item, updated_at: item.updated_at || new Date().toISOString() })));
             if (!insErr) {
                 await loadEquipments();
                 populateEquipmentList();
@@ -3747,7 +3761,7 @@
             if (toInsert.length === 0) return;
             const { error: insErr } = await checklistBackend
                 .from('equipments')
-                .insert(toInsert);
+                .insert(toInsert.map(item => ({ ...item, updated_at: item.updated_at || new Date().toISOString() })));
             if (!insErr) {
                 await loadEquipments();
                 populateEquipmentList();
@@ -3773,7 +3787,7 @@
             if (toInsert.length === 0) return;
             const { error: insErr } = await checklistBackend
                 .from('equipments')
-                .insert(toInsert);
+                .insert(toInsert.map(item => ({ ...item, updated_at: item.updated_at || new Date().toISOString() })));
             if (!insErr) {
                 await loadEquipments();
                 populateEquipmentList();
@@ -5109,12 +5123,6 @@
 
         // Smart Sync Helper
         async function smartSync(tableName, currentData, idField = 'id', dateField = 'created_at', select = '*') {
-            // FIX: If table is 'equipments' or 'users', verify if dateField exists. 
-            // Equipments might not have updated_at, fallback to created_at
-            if (tableName === 'equipments' && dateField === 'updated_at') {
-                dateField = 'created_at';
-            }
-
             if (!isOnline()) return currentData || [];
             
             // Find latest date in local data
@@ -5264,7 +5272,7 @@
                 await Promise.all([
                     syncPendingInspections(),
                     syncPendingIrrInspections(),
-                    // syncPendingEquipments(), // Disabled to avoid updated_at error if column missing
+                    syncPendingEquipments(),
                     syncPendingCalibragem(),
                     syncPendingControle3p()
                 ].map(p => p.catch ? p : Promise.resolve()));
@@ -5927,21 +5935,24 @@
         ];
 
         async function loadEquipments() {
-            let fetched = [];
+            const cached = getCachedEquipments() || [];
+            let fetched = cached;
             try {
-                fetched = getCachedEquipments() || [];
-                
                 if (isOnline()) {
-                    // Sincronizar apenas atualizações
-                    fetched = await smartSync('equipments', fetched, 'id', 'updated_at');
+                    if (cached.length) {
+                        fetched = await smartSync('equipments', cached, 'id', 'updated_at');
+                    } else {
+                        const result = await checklistBackend.from('equipments').select('*');
+                        if (result.error) throw result.error;
+                        fetched = result.data || [];
+                    }
                 }
             } catch (_) {
-                fetched = getCachedEquipments() || [];
+                fetched = cached;
             }
-            
-            // Merge fallback tanks
             const map = new Map();
             fetched.forEach(e => map.set(String(e.frota), e));
+            cached.forEach(e => { if (!map.has(String(e.frota))) map.set(String(e.frota), e); });
             fallbackTanks.forEach(e => {
                 if (!map.has(String(e.frota))) map.set(String(e.frota), { ...e, status: 'ativo' });
             });
@@ -5966,11 +5977,76 @@
             return map[t] || [t];
         }
 
+        const equipmentPageLabels = {
+            cct: 'CCT • Geral',
+            plantio: 'CCT • Plantio',
+            apoio_plantio: 'CCT • Apoio Plantio',
+            safra: 'CCT • Safra',
+            caminhoes: 'CCT • Caminhões',
+            transporte_soja: 'CCT • Transporte de Soja'
+        };
+
+        function getEquipmentPage(equipment) {
+            return String(equipment && (equipment.pagina || equipment.pagina_sistema) || '').trim().toLowerCase();
+        }
+
+        function persistableEquipment(equipment) {
+            const { _localOnly, action, ...record } = equipment || {};
+            return record;
+        }
+
+        function escapeEquipmentAttribute(value) {
+            return String(value == null ? '' : value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+        }
+
+        function equipmentPageOptions(selectedPage) {
+            return Object.keys(equipmentPageLabels).map(page => `<option value="${page}" ${selectedPage === page ? 'selected' : ''}>${equipmentPageLabels[page]}</option>`).join('');
+        }
+
+        function equipmentTypeLabel(type) {
+            const labels = {
+                truck: 'CAMINHÃO', caminhao: 'CAMINHÃO', trator: 'TRATOR', tractor: 'TRATOR',
+                colhedora: 'COLHEDORA', harvester: 'COLHEDORA', plantadora: 'PLANTADORA', planter: 'PLANTADORA',
+                distribuidora: 'DISTRIBUIDORA', distributor: 'DISTRIBUIDORA', reboque: 'REBOQUE', trailer: 'REBOQUE',
+                transbordo: 'TRANSBORDO', cobridores: 'COBRIDORES', tortao: 'TORTÃO', motobombas: 'MOTOBOMBAS', hidroroll: 'HIDRO ROLL'
+            };
+            const key = String(type || 'outros').toLowerCase();
+            return labels[key] || key.replace(/[_-]+/g, ' ').toUpperCase();
+        }
+
+        function getEquipmentGroupsForPage(page, baseGroups) {
+            const assigned = (equipments || []).filter(e => getEquipmentPage(e) === page && (e.status || 'ativo') === 'ativo' && e.frota != null && String(e.frota).trim());
+            const assignedByFleet = new Map((equipments || []).filter(e => getEquipmentPage(e) && e.frota != null).map(e => [String(e.frota), getEquipmentPage(e)]));
+            const groups = (baseGroups || []).map(group => ({
+                type: group.type,
+                items: (group.items || []).filter(item => {
+                    const assignedPage = assignedByFleet.get(String(item.frota));
+                    return !assignedPage || assignedPage === page;
+                }).map(item => ({ ...item }))
+            })).filter(group => group.items.length);
+            assigned.forEach(equipment => {
+                const type = equipmentTypeLabel(equipment.tipo || equipment.setor || 'outros');
+                let group = groups.find(item => item.type === type);
+                if (!group) { group = { type, items: [] }; groups.push(group); }
+                if (!group.items.some(item => String(item.frota) === String(equipment.frota))) {
+                    group.items.push({ frota: String(equipment.frota), frente: equipment.descricao || '' });
+                }
+            });
+            return groups;
+        }
+
         function populateFrotaOptions(type) {
             const sel = document.getElementById('frotaSelect');
             if (!sel) return;
             const aliases = typeAliases(type);
-            const list = (equipments || []).filter(e => aliases.includes(e.tipo || e.setor) && (e.status || 'ativo') === 'ativo');
+            const cctPageByType = { caminhao: 'caminhoes', trator: 'plantio', colhedora: 'plantio', plantadora: 'plantio', distribuidora: 'plantio', transbordo: 'plantio', reboque: 'cct', cobridores: 'apoio_plantio', tortao: 'plantio' };
+            const targetPage = cctPageByType[type] || 'cct';
+            const list = (equipments || []).filter(e => {
+                if (!aliases.includes(e.tipo || e.setor) || (e.status || 'ativo') !== 'ativo') return false;
+                if (currentEquipmentSource !== 'cct') return true;
+                const page = getEquipmentPage(e);
+                return !page || page === 'cct' || page === targetPage;
+            });
             const opts = ['<option value="">Selecione uma frota</option>', '<option value="custom">Outro (digitar)</option>']
                 .concat(list.map(e => `<option value="${e.frota}">${e.frota}${e.descricao ? ' - ' + e.descricao : ''}</option>`));
             sel.innerHTML = opts.join('');
@@ -6366,11 +6442,12 @@
             const frota = document.getElementById('equipFrota').value.trim();
             const descricao = document.getElementById('equipDesc').value.trim();
             const status = document.getElementById('equipStatus').value;
-            if (!tipo || !frota) {
-                showCustomAlert('Informe setor e frota.');
+            const pagina = document.getElementById('equipPagina')?.value || '';
+            if (!tipo || !frota || !pagina) {
+                showCustomAlert('Informe setor, frota e página do sistema.');
                 return;
             }
-            const item = { tipo, frota, descricao, status, created_at: new Date().toISOString() };
+            const item = { tipo, frota, descricao, status, pagina, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
             showLoading(true);
             try {
                 if (isOnline()) {
@@ -6389,6 +6466,7 @@
                 showFloatingNotification('success', 'Equipamento cadastrado');
                 document.getElementById('equipFrota').value = '';
                 document.getElementById('equipDesc').value = '';
+                document.getElementById('equipPagina').value = '';
             } catch (e) {
                 equipments.unshift(item);
                 setCachedEquipments(equipments);
@@ -6397,9 +6475,62 @@
                 showFloatingNotification('warning', 'Falha ao cadastrar online. Salvo localmente.');
                 document.getElementById('equipFrota').value = '';
                 document.getElementById('equipDesc').value = '';
+                document.getElementById('equipPagina').value = '';
             } finally {
                 showLoading(false);
             }
+        }
+
+        async function updateEquipmentPageById(id, pagina) {
+            const equipment = (equipments || []).find(e => String(e.id || `${e.tipo || e.setor || 'equip'}-${e.frota}`) === String(id || ''));
+            if (!equipment) {
+                showFloatingNotification('error', 'Não foi possível localizar este equipamento. Atualize a lista e tente novamente.');
+                return;
+            }
+            const previousPage = getEquipmentPage(equipment);
+            const wasLocalOnly = !!equipment._localOnly;
+            const recordId = String(equipment.id || `${equipment.tipo || equipment.setor || 'equip'}-${equipment.frota}`).replaceAll('/', '_');
+            const updatedAt = new Date().toISOString();
+            equipment.id = recordId;
+            equipment.pagina = pagina || '';
+            equipment.updated_at = updatedAt;
+            setCachedEquipments(equipments);
+            populateEquipmentList();
+            if (isOnline()) {
+                try {
+                    const result = equipment._localOnly
+                        ? await checklistBackend.from('equipments').upsert([{ ...persistableEquipment(equipment), id: recordId }]).select()
+                        : await checklistBackend.from('equipments').update({ pagina: pagina || '', updated_at: updatedAt }).eq('id', recordId).select();
+                    if (result.error) throw result.error;
+                    delete equipment._localOnly;
+                    setCachedEquipments(equipments);
+                    showFloatingNotification('success', 'Página do equipamento atualizada');
+                } catch (error) {
+                    equipment.pagina = previousPage;
+                    setCachedEquipments(equipments);
+                    populateEquipmentList();
+                    showFloatingNotification('error', `Não foi possível salvar a página: ${error.message || error}`);
+                    return;
+                }
+            } else {
+                equipment._localOnly = true;
+                const pending = getPendingEquipments();
+                const pendingCreate = wasLocalOnly && pending.find(item => !item.action && String(item.frota) === String(equipment.frota));
+                if (pendingCreate) {
+                    pendingCreate.pagina = pagina || '';
+                    pendingCreate.updated_at = updatedAt;
+                    setPendingEquipments(pending);
+                } else {
+                    queueEquipment({ ...equipment, action: 'update_page' });
+                }
+                setCachedEquipments(equipments);
+                showFloatingNotification('info', 'Página salva no aparelho e será sincronizada quando voltar a conexão');
+            }
+
+            if (document.getElementById('cct-sub-plantio') && !document.getElementById('cct-sub-plantio').classList.contains('hidden')) renderCCTPlantio();
+            if (document.getElementById('cct-sub-apoio_plantio') && !document.getElementById('cct-sub-apoio_plantio').classList.contains('hidden')) renderCCTApoioPlantio();
+            if (document.getElementById('cct-sub-safra') && !document.getElementById('cct-sub-safra').classList.contains('hidden')) renderCCTSafra();
+            if (document.getElementById('cct-sub-transporte_soja') && !document.getElementById('cct-sub-transporte_soja').classList.contains('hidden')) renderCCTTransporteSoja();
         }
 
         function populateEquipmentList() {
@@ -6413,7 +6544,11 @@
                 container.innerHTML = '<div class="text-gray-500 dark:text-gray-400">Nenhuma frota cadastrada</div>';
                 return;
             }
-            container.innerHTML = list.map(e => `
+            container.innerHTML = list.map(e => {
+                if (!e.id && !e._localOnly) e._localOnly = true;
+                const equipmentId = escapeEquipmentAttribute(e.id || `${e.tipo || e.setor || 'equip'}-${e.frota}`);
+                const pagina = getEquipmentPage(e);
+                return `
                 <div class="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
                     <div class="flex items-center justify-between">
                         <div>
@@ -6422,8 +6557,14 @@
                         </div>
                         <span class="text-xs px-2 py-1 rounded-full ${ (e.status||'ativo')==='ativo' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' }">${e.status||'ativo'}</span>
                     </div>
+                    <label class="block mt-3 text-xs font-medium text-gray-600 dark:text-gray-300">Página do sistema</label>
+                    <select data-equipment-id="${equipmentId}" onchange="updateEquipmentPageById(this.dataset.equipmentId,this.value)" class="mt-1 w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                        <option value="" ${!pagina ? 'selected' : ''}>Não definida — selecione</option>
+                        ${equipmentPageOptions(pagina)}
+                    </select>
                 </div>
-            `).join('');
+            `;
+            }).join('');
             if (filterSel && !filterSel._bound) {
                 filterSel.addEventListener('change', populateEquipmentList);
                 filterSel._bound = true;
@@ -6977,10 +7118,15 @@
         function renderCCTPlantio() {
             const container = document.getElementById('cct-sub-plantio');
             if (!container) return;
+            const groups = getEquipmentGroupsForPage('plantio', cctPlantioData);
             
             let html = '<div class="space-y-6 mt-4">';
             
-            cctPlantioData.forEach(group => {
+            if (!groups.length) {
+                container.innerHTML = '<div class="text-center text-gray-500 dark:text-gray-400 py-8">Nenhum equipamento disponível em Plantio.</div>';
+                return;
+            }
+            groups.forEach(group => {
                 let groupSum = 0;
                 let groupCount = 0;
                 html += `
@@ -7228,15 +7374,16 @@
         function renderCCTApoioPlantio() {
             const container = document.getElementById('cct-sub-apoio_plantio');
             if (!container) return;
-            
-            if (!cctApoioPlantioData.length) {
+            const groups = getEquipmentGroupsForPage('apoio_plantio', cctApoioPlantioData);
+
+            if (!groups.length) {
                 container.innerHTML = '<div class="text-center text-gray-500 py-8">Nenhum equipamento cadastrado em Apoio Plantio.</div>';
                 return;
             }
 
             let html = '<div class="space-y-6 mt-4">';
             
-            cctApoioPlantioData.forEach(group => {
+            groups.forEach(group => {
                 let groupSum = 0;
                 let groupCount = 0;
                 html += `
@@ -7510,24 +7657,34 @@
         function renderCCTSafra() {
             const container = document.getElementById('cct-sub-safra');
             if (!container) return;
-            container.innerHTML = `
-                <div class="text-center py-12">
-                    <svg class="mx-auto h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7m-9 2v8m4-8v8m5-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">Safra</h3>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Área reservada para controle da Safra. Aguardando definição dos equipamentos.</p>
-                </div>
-            `;
+            const list = (equipments || []).filter(e => getEquipmentPage(e) === 'safra' && (e.status || 'ativo') === 'ativo');
+            if (!list.length) {
+                container.innerHTML = '<div class="text-center py-12 text-gray-500 dark:text-gray-400">Nenhum equipamento ativo foi direcionado para Safra. Escolha a página Safra no cadastro de equipamentos.</div>';
+                return;
+            }
+            container.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">${list.map(e => `
+                <button type="button" class="cct-safra-card text-left p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary hover:shadow-md" data-frota="${escapeEquipmentAttribute(e.frota)}" data-label="${escapeEquipmentAttribute(e.frota)}">
+                    <span class="block text-xs uppercase text-gray-500 dark:text-gray-400">${escapeEquipmentAttribute(equipmentTypeLabel(e.tipo || e.setor))}</span>
+                    <span class="block mt-1 text-lg font-semibold text-gray-900 dark:text-white">${escapeEquipmentAttribute(e.frota)}</span>
+                    <span class="block mt-1 text-sm text-gray-600 dark:text-gray-300">${escapeEquipmentAttribute(e.descricao || '')}</span>
+                </button>`).join('')}</div>`;
+            container.querySelectorAll('.cct-safra-card').forEach(card => card.addEventListener('click', () => {
+                showCCTPlantioResumo(card.dataset.frota, card.dataset.label || '');
+            }));
         }
 
         function renderCCTTransporteSoja() {
             const container = document.getElementById('cct-sub-transporte_soja');
             if (!container) return;
+            const groups = getEquipmentGroupsForPage('transporte_soja', cctTransporteSojaData);
+            if (!groups.length) {
+                container.innerHTML = '<div class="text-center text-gray-500 dark:text-gray-400 py-8">Nenhum equipamento disponível em Transporte de Soja.</div>';
+                return;
+            }
             
             let html = '<div class="space-y-6 mt-4">';
             
-            cctTransporteSojaData.forEach(group => {
+            groups.forEach(group => {
                 let groupSum = 0;
                 let groupCount = 0;
                 html += `
@@ -8935,6 +9092,8 @@
         }
 
         function selectEquipment(type) {
+            const cctSection = document.getElementById('cct_coque');
+            currentEquipmentSource = cctSection && !cctSection.classList.contains('hidden') ? 'cct' : 'general';
             currentEquipment = type;
             document.getElementById('equipmentSelection').classList.add('hidden');
             document.getElementById('checklistForm').classList.remove('hidden');
@@ -11148,10 +11307,18 @@
             const remaining = [];
             for (const item of queue) {
                 try {
-                    const { error } = await checklistBackend
-                        .from('equipments')
-                        .insert([{ tipo: item.tipo, frota: item.frota, descricao: item.descricao, status: item.status, created_at: item.created_at }]);
-                    if (error) throw error;
+                    let result;
+                    if (item.action === 'update_page' && !item._localOnly && item.id) {
+                        result = await checklistBackend.from('equipments').update({ pagina: item.pagina || '', updated_at: item.updated_at || new Date().toISOString() }).eq('id', String(item.id));
+                    } else if (item.action === 'update_page') {
+                        result = await checklistBackend.from('equipments').upsert([{ ...persistableEquipment(item), id: String(item.id) }]);
+                    } else {
+                        result = await checklistBackend.from('equipments').insert([{
+                            tipo: item.tipo, frota: item.frota, descricao: item.descricao, status: item.status,
+                            pagina: item.pagina || '', created_at: item.created_at, updated_at: item.updated_at
+                        }]);
+                    }
+                    if (result.error) throw result.error;
                 } catch (e) {
                     remaining.push(item);
                 }
