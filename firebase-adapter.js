@@ -115,6 +115,18 @@
         async execute() {
             try {
                 const ref = db.collection(this.table);
+                const documentIdFilter = this.filters.find(filter => filter.field === 'id' && filter.operator === '==');
+                if (this.action === 'delete' && documentIdFilter && this.filters.length === 1) {
+                    const target = ref.doc(String(documentIdFilter.value));
+                    const snapshot = await target.get();
+                    if (snapshot.exists) {
+                        const row = Object.assign({ id: snapshot.id }, snapshot.data() || {});
+                        if (this.matches(row)) {
+                            await target.delete();
+                            return { data: this.returnRows ? [row] : null, error: null };
+                        }
+                    }
+                }
                 const idFilter = this.table === 'users' && this.filters.find(filter => filter.field === 'id' && filter.operator === '==');
                 if (idFilter && this.action !== 'upsert' && this.action !== 'insert') {
                     const target = ref.doc(String(idFilter.value));

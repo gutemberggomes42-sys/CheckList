@@ -9675,9 +9675,16 @@
                 const idxC = inspections.findIndex(i => String(i.id) === matchId || String(i.local_id) === matchId);
                 if (idxC >= 0) {
                     const record = inspections[idxC];
-                    if (isOnline() && currentUser && currentUser.id && record.id) {
-                        const { error } = await checklistBackend.from('inspections').delete().eq('id', record.id);
+                    const recordId = String(record.id || record.local_id || '');
+                    if (!recordId) throw new Error('Não foi possível identificar este checklist para excluir.');
+                    if (isOnline()) {
+                        const { error } = await checklistBackend.from('inspections').delete().eq('id', recordId);
                         if (error) throw error;
+                        setPendingInspections(getPendingInspections().filter(item => String(item.id || item.local_id || '') !== recordId));
+                    } else {
+                        const queue = getPendingInspections().filter(item => String(item.id || item.local_id || '') !== recordId);
+                        queue.push({ action: 'delete', id: recordId, local_id: record.local_id || recordId });
+                        setPendingInspections(queue);
                     }
                     inspections.splice(idxC, 1);
                     setCachedInspections(inspections);
@@ -9687,9 +9694,16 @@
                     const idxI = irrigInspections.findIndex(i => String(i.id) === matchId || String(i.local_id) === matchId);
                     if (idxI >= 0) {
                         const recordI = irrigInspections[idxI];
-                        if (isOnline() && currentUser && currentUser.id && recordI.id) {
-                            const { error } = await checklistBackend.from('irrig_inspections').delete().eq('id', recordI.id);
+                        const recordId = String(recordI.id || recordI.local_id || '');
+                        if (!recordId) throw new Error('Não foi possível identificar este checklist para excluir.');
+                        if (isOnline()) {
+                            const { error } = await checklistBackend.from('irrig_inspections').delete().eq('id', recordId);
                             if (error) throw error;
+                            setPendingIrrInspections(getPendingIrrInspections().filter(item => String(item.id || item.local_id || '') !== recordId));
+                        } else {
+                            const queue = getPendingIrrInspections().filter(item => String(item.id || item.local_id || '') !== recordId);
+                            queue.push({ action: 'delete', id: recordId, local_id: recordI.local_id || recordId });
+                            setPendingIrrInspections(queue);
                         }
                         irrigInspections.splice(idxI, 1);
                         setCachedIrrInspections(irrigInspections);
@@ -10903,6 +10917,11 @@
             const remaining = [];
             for (const item of queue) {
                 try {
+                    if (item.action === 'delete') {
+                        const { error } = await checklistBackend.from('inspections').delete().eq('id', String(item.id || item.local_id));
+                        if (error) throw error;
+                        continue;
+                    }
                     const cleanItems = Array.isArray(item.items)
                         ? item.items.map(it => {
                             const clone = Object.assign({}, it);
@@ -10980,6 +10999,11 @@
             const remaining = [];
             for (const item of queue) {
                 try {
+                    if (item.action === 'delete') {
+                        const { error } = await checklistBackend.from('irrig_inspections').delete().eq('id', String(item.id || item.local_id));
+                        if (error) throw error;
+                        continue;
+                    }
                     const cleanItems = Array.isArray(item.items)
                         ? item.items.map(it => {
                             const clone = Object.assign({}, it);
