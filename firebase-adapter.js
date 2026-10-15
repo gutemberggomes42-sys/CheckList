@@ -209,7 +209,14 @@
                     }
                     let first = true;
                     this.unsubs.push(db.collection(table).onSnapshot(snap => {
-                        if (first) { first = false; return; }
+                        if (first) {
+                            first = false;
+                            if (h.filter.includeInitialSnapshot) {
+                                const rows = snap.docs.map(doc => Object.assign({ id: doc.id }, doc.data() || {}));
+                                h.callback({ eventType: 'SYNC', rows });
+                            }
+                            return;
+                        }
                         snap.docChanges().forEach(change => {
                             const event = change.type === 'added' ? 'INSERT' : change.type === 'modified' ? 'UPDATE' : 'DELETE';
                             if (h.filter.event !== '*' && h.filter.event !== event) return;

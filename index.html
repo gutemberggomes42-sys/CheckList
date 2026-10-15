@@ -3384,6 +3384,7 @@
         let currentEquipmentSource = 'general';
         let currentEquipmentPage = 'cct';
         let inspections = [];
+        const realtimeInspectionSnapshots = { inspections: null, irrig_inspections: null };
         let equipments = [];
         let pendingEquipmentRegistration = null;
         let resumeCCTDraftAutomatically = false;
@@ -3484,6 +3485,64 @@
                 out.push(it);
             }
             return out;
+        }
+
+        function inspectionIdentityMatches(a, b) {
+            if (!a || !b) return false;
+            return (a.id && b.id && String(a.id) === String(b.id))
+                || (a.local_id && b.local_id && String(a.local_id) === String(b.local_id));
+        }
+
+        function mergeRemoteInspectionSnapshot(table, remoteRows) {
+            const isIrr = table === 'irrig_inspections';
+            const pending = isIrr ? getPendingIrrInspections() : getPendingInspections();
+            const pendingDeletes = new Set(pending.filter(item => item.action === 'delete')
+                .flatMap(item => [item.id, item.local_id]).filter(Boolean).map(String));
+            const pendingCreates = pending.filter(item => item.action !== 'delete');
+            return dedupeInspections([...(Array.isArray(remoteRows) ? remoteRows : []), ...pendingCreates])
+                .filter(item => !pendingDeletes.has(String(item.id || '')) && !pendingDeletes.has(String(item.local_id || '')));
+        }
+
+        function refreshInspectionViewsFromRealtime() {
+            updateStats();
+            updateDashboardStats();
+            updateAnalytics();
+            updateHistoryTable();
+        }
+
+        function applyRemoteInspectionSnapshot(table, rows) {
+            realtimeInspectionSnapshots[table] = dedupeInspections(Array.isArray(rows) ? rows : []);
+            const merged = mergeRemoteInspectionSnapshot(table, realtimeInspectionSnapshots[table]);
+            if (table === 'irrig_inspections') {
+                irrigInspections = merged;
+                setCachedIrrInspections(irrigInspections);
+            } else {
+                inspections = merged;
+                setCachedInspections(inspections);
+            }
+            refreshInspectionViewsFromRealtime();
+        }
+
+        function applyRealtimeInspectionChange(table, eventType, record) {
+            if (!record) return;
+            const isIrr = table === 'irrig_inspections';
+            const currentRows = isIrr ? irrigInspections : inspections;
+            const remoteRows = Array.isArray(realtimeInspectionSnapshots[table])
+                ? realtimeInspectionSnapshots[table].slice()
+                : (Array.isArray(currentRows) ? currentRows.slice() : []);
+            if (eventType === 'DELETE') {
+                const gone = record;
+                const openChecklistWasDeleted = String(currentInspectionId || '') === String(gone.id || '')
+                    || (!!gone.local_id && String(currentInspectionId || '') === String(gone.local_id));
+                const filtered = remoteRows.filter(item => !inspectionIdentityMatches(item, gone));
+                applyRemoteInspectionSnapshot(table, filtered);
+                if (openChecklistWasDeleted) closeModal('inspectionModal');
+                return;
+            }
+            const existingIndex = remoteRows.findIndex(item => inspectionIdentityMatches(item, record));
+            if (existingIndex >= 0) remoteRows[existingIndex] = { ...remoteRows[existingIndex], ...record };
+            else remoteRows.unshift(record);
+            applyRemoteInspectionSnapshot(table, remoteRows);
         }
         let currentInspection = {
             items: [],
@@ -4894,6 +4953,11 @@
                     data.forEach(item => {
                         currentMap.set(String(item[idField]), item);
                     });
+                }
+
+                if ((tableName === 'inspections' || tableName === 'irrig_inspections')
+                    && Array.isArray(realtimeInspectionSnapshots[tableName])) {
+                    return mergeRemoteInspectionSnapshot(tableName, realtimeInspectionSnapshots[tableName]);
                 }
                 
                 // Convert back to array and sort
@@ -10494,7 +10558,7 @@
                         queue.push({ action: 'delete', id: recordId, local_id: record.local_id || recordId });
                         setPendingInspections(queue);
                     }
-                    inspections.splice(idxC, 1);
+                    inspections = inspections.filter(item => String(item.id || '') !== recordId && String(item.local_id || '') !== String(record.local_id || recordId));
                     setCachedInspections(inspections);
                     removed = true;
                 }
@@ -10513,7 +10577,7 @@
                             queue.push({ action: 'delete', id: recordId, local_id: recordI.local_id || recordId });
                             setPendingIrrInspections(queue);
                         }
-                        irrigInspections.splice(idxI, 1);
+                        irrigInspections = irrigInspections.filter(item => String(item.id || '') !== recordId && String(item.local_id || '') !== String(recordI.local_id || recordId));
                         setCachedIrrInspections(irrigInspections);
                         removed = true;
                     }
@@ -11642,18 +11706,28 @@
             try {
                 if (realtimeChannel && systemBroadcastChannel) return;
                 realtimeChannel = checklistBackend.channel('all-changes')
-                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'inspections' }, (payload) => {
-                        if (!savingInspection) {
-                            loadInitialData();
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'inspections', includeInitialSnapshot: true }, (payload) => {
+                        const eventType = payload && payload.eventType;
+                        if (eventType === 'SYNC') {
+                            applyRemoteInspectionSnapshot('inspections', payload.rows || []);
+                            return;
                         }
-                        const r = payload && payload.new ? payload.new : {};
+                        const r = eventType === 'DELETE' ? (payload && payload.old || {}) : (payload && payload.new || {});
+                        applyRealtimeInspectionChange('inspections', eventType, r);
+                        if (eventType !== 'INSERT') return;
                         const f = r.frota || '';
                         notifyAdminOfNewInspection(r, 'cct');
                         pushNotification('info', 'Nova inspeção', f ? `Inspeção lançada para ${f}` : 'Inspeção lançada');
                     })
-                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'irrig_inspections' }, (payload) => {
-                        if (!savingInspection) { loadInitialData(); }
-                        const r = payload && payload.new ? payload.new : {};
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'irrig_inspections', includeInitialSnapshot: true }, (payload) => {
+                        const eventType = payload && payload.eventType;
+                        if (eventType === 'SYNC') {
+                            applyRemoteInspectionSnapshot('irrig_inspections', payload.rows || []);
+                            return;
+                        }
+                        const r = eventType === 'DELETE' ? (payload && payload.old || {}) : (payload && payload.new || {});
+                        applyRealtimeInspectionChange('irrig_inspections', eventType, r);
+                        if (eventType !== 'INSERT') return;
                         const f = r.frota || '';
                         notifyAdminOfNewInspection(r, 'irr');
                         pushNotification('info', 'Nova inspeção (Irrigação)', f ? `Inspeção lançada para ${f}` : 'Inspeção lançada');
