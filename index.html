@@ -2266,7 +2266,7 @@
                 </div>
 
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 mb-6">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Novo Equipamento</h3>
+                    <h3 id="equipmentFormTitle" class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Novo Equipamento</h3>
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Setor</label>
@@ -2311,7 +2311,8 @@
                         <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Plantio e Safra mostram os equipamentos nas respectivas abas. Caminhões limita as frotas do checklist de caminhão no CCT.</p>
                     </div>
                     <div class="flex gap-4">
-                        <button onclick="addEquipment()" class="px-6 py-3 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors duration-200 font-medium">Salvar</button>
+                        <button id="equipSaveButton" onclick="saveEquipment()" class="px-6 py-3 bg-primary text-white rounded-md hover:bg-primary-dark transition-colors duration-200 font-medium">Salvar</button>
+                        <button id="equipCancelEditButton" onclick="cancelEditEquipment()" class="hidden px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">Cancelar edição</button>
                         <button onclick="populateEquipmentList()" class="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">Atualizar Lista</button>
                     </div>
                 </div>
@@ -3272,6 +3273,8 @@
         let currentEquipmentSource = 'general';
         let inspections = [];
         let equipments = [];
+        let editingEquipmentId = null;
+        let editingEquipmentOriginalKey = null;
         let realtimeChannel = null;
         let systemBroadcastChannel = null;
         let presenceChannel = null;
@@ -5510,6 +5513,14 @@
             const frota = String(equipment && equipment.frota || '').trim().toUpperCase();
             return frota + '::' + getEquipmentPage(equipment);
         }
+        function equipmentUiId(equipment) {
+            return String(equipment && equipment.id || equipmentIdentityKey(equipment));
+        }
+        function createEquipmentId() {
+            return window.crypto && typeof window.crypto.randomUUID === 'function'
+                ? window.crypto.randomUUID()
+                : 'equip-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+        }
         function persistableEquipment(equipment) {
             const { _localOnly, action, ...record } = equipment || {};
             return record;
@@ -5950,6 +5961,140 @@
             } catch(_) {}
         }
 
+        function saveEquipment() {
+            return editingEquipmentId ? updateEquipment() : addEquipment();
+        }
+
+        function editEquipmentById(id) {
+            const equipment = (equipments || []).find(item => equipmentUiId(item) === String(id || ''));
+            if (!equipment) {
+                showFloatingNotification('error', 'Não foi possível localizar este equipamento. Atualize a lista e tente novamente.');
+                return;
+            }
+            editingEquipmentId = equipmentUiId(equipment);
+            editingEquipmentOriginalKey = equipmentIdentityKey(equipment);
+            document.getElementById('equipTipo').value = equipment.tipo || equipment.setor || 'outros';
+            document.getElementById('equipFrota').value = equipment.frota || '';
+            document.getElementById('equipDesc').value = equipment.descricao || '';
+            document.getElementById('equipStatus').value = equipment.status || 'ativo';
+            document.getElementById('equipPagina').value = getEquipmentPage(equipment);
+            document.getElementById('equipmentFormTitle').textContent = 'Editar Equipamento';
+            document.getElementById('equipSaveButton').textContent = 'Salvar alterações';
+            document.getElementById('equipCancelEditButton').classList.remove('hidden');
+            document.getElementById('equipFrota').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            document.getElementById('equipFrota').focus();
+        }
+
+        function cancelEditEquipment() {
+            editingEquipmentId = null;
+            editingEquipmentOriginalKey = null;
+            document.getElementById('equipTipo').value = 'caminhao';
+            document.getElementById('equipFrota').value = '';
+            document.getElementById('equipDesc').value = '';
+            document.getElementById('equipStatus').value = 'ativo';
+            document.getElementById('equipPagina').value = '';
+            document.getElementById('equipmentFormTitle').textContent = 'Novo Equipamento';
+            document.getElementById('equipSaveButton').textContent = 'Salvar';
+            document.getElementById('equipCancelEditButton').classList.add('hidden');
+        }
+
+        async function updateEquipment() {
+            const tipo = document.getElementById('equipTipo').value;
+            const frota = document.getElementById('equipFrota').value.trim();
+            const descricao = document.getElementById('equipDesc').value.trim();
+            const status = document.getElementById('equipStatus').value;
+            const pagina = document.getElementById('equipPagina')?.value || '';
+            if (!tipo || !frota || !pagina) {
+                showCustomAlert('Informe setor, frota e página do sistema.');
+                return;
+            }
+            const equipment = (equipments || []).find(item => equipmentUiId(item) === editingEquipmentId || equipmentIdentityKey(item) === editingEquipmentOriginalKey);
+            if (!equipment) {
+                showFloatingNotification('error', 'Equipamento não encontrado. Atualize a lista e tente novamente.');
+                cancelEditEquipment();
+                return;
+            }
+            const updated = { ...equipment, tipo, frota, descricao, status, pagina: normalizeEquipmentPage(pagina), updated_at: new Date().toISOString() };
+            const duplicate = (equipments || []).find(item => item !== equipment && equipmentIdentityKey(item) === equipmentIdentityKey(updated));
+            if (duplicate) {
+                showCustomAlert('A frota ' + frota + ' já está cadastrada em ' + (equipmentPageLabels[updated.pagina] || updated.pagina) + '.');
+                return;
+            }
+            showLoading(true);
+            try {
+                const recordId = String(equipment.id || createEquipmentId());
+                updated.id = recordId;
+                if (isOnline()) {
+                    const result = await checklistBackend.from('equipments').upsert([persistableEquipment(updated)]).select();
+                    if (result.error) throw result.error;
+                    if (result.data && result.data[0]) Object.assign(updated, result.data[0]);
+                    delete updated._localOnly;
+                    const queue = getPendingEquipments().filter(item => equipmentIdentityKey(item) !== editingEquipmentOriginalKey && String(item.id || '') !== recordId);
+                    setPendingEquipments(queue);
+                } else {
+                    updated._localOnly = true;
+                    const queue = getPendingEquipments();
+                    const pendingIndex = queue.findIndex(item => (!item.action && equipmentIdentityKey(item) === editingEquipmentOriginalKey) || String(item.id || '') === recordId);
+                    const pendingRecord = { ...persistableEquipment(updated), action: 'upsert' };
+                    if (pendingIndex >= 0) queue[pendingIndex] = pendingRecord;
+                    else queue.push(pendingRecord);
+                    setPendingEquipments(queue);
+                }
+                const index = equipments.indexOf(equipment);
+                if (index >= 0) equipments[index] = updated;
+                setCachedEquipments(equipments);
+                populateEquipmentList();
+                cancelEditEquipment();
+                refreshEquipmentPageViews();
+                showFloatingNotification(isOnline() ? 'success' : 'info', isOnline() ? 'Equipamento atualizado' : 'Alteração salva no aparelho e será sincronizada quando voltar a conexão');
+            } catch (error) {
+                showFloatingNotification('error', `Não foi possível atualizar o equipamento: ${error.message || error}`);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function deleteEquipmentById(id) {
+            const equipment = (equipments || []).find(item => equipmentUiId(item) === String(id || ''));
+            if (!equipment) {
+                showFloatingNotification('error', 'Não foi possível localizar este equipamento. Atualize a lista e tente novamente.');
+                return;
+            }
+            const label = [equipment.frota, equipmentPageLabels[getEquipmentPage(equipment)] || getEquipmentPage(equipment)].filter(Boolean).join(' • ');
+            if (!window.confirm(`Excluir o equipamento ${label}?`)) return;
+            showLoading(true);
+            try {
+                const wasLocalOnly = !!equipment._localOnly;
+                const recordId = String(equipment.id || '');
+                if (wasLocalOnly) {
+                    setPendingEquipments(getPendingEquipments().filter(item => String(item.id || '') !== recordId && equipmentIdentityKey(item) !== equipmentIdentityKey(equipment)));
+                } else if (isOnline()) {
+                    if (!recordId) throw new Error('O cadastro não tem um identificador válido. Atualize a lista e tente novamente.');
+                    const result = await checklistBackend.from('equipments').delete().eq('id', recordId);
+                    if (result.error) throw result.error;
+                } else {
+                    queueEquipment({ action: 'delete', id: recordId, frota: equipment.frota, pagina: getEquipmentPage(equipment) });
+                }
+                equipments = (equipments || []).filter(item => item !== equipment);
+                setCachedEquipments(equipments);
+                populateEquipmentList();
+                if (editingEquipmentId === equipmentUiId(equipment)) cancelEditEquipment();
+                refreshEquipmentPageViews();
+                showFloatingNotification(isOnline() || wasLocalOnly ? 'success' : 'info', isOnline() || wasLocalOnly ? 'Equipamento excluído' : 'Exclusão salva no aparelho e será sincronizada quando voltar a conexão');
+            } catch (error) {
+                showFloatingNotification('error', `Não foi possível excluir o equipamento: ${error.message || error}`);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function refreshEquipmentPageViews() {
+            if (document.getElementById('cct-sub-plantio') && !document.getElementById('cct-sub-plantio').classList.contains('hidden')) renderCCTPlantio();
+            if (document.getElementById('cct-sub-apoio_plantio') && !document.getElementById('cct-sub-apoio_plantio').classList.contains('hidden')) renderCCTApoioPlantio();
+            if (document.getElementById('cct-sub-safra') && !document.getElementById('cct-sub-safra').classList.contains('hidden')) renderCCTSafra();
+            if (document.getElementById('cct-sub-transporte_soja') && !document.getElementById('cct-sub-transporte_soja').classList.contains('hidden')) renderCCTTransporteSoja();
+        }
+
         async function addEquipment() {
             const tipo = document.getElementById('equipTipo').value;
             const frota = document.getElementById('equipFrota').value.trim();
@@ -6000,14 +6145,14 @@
         }
 
         async function updateEquipmentPageById(id, pagina) {
-            const equipment = (equipments || []).find(e => String(e.id || `${e.tipo || e.setor || 'equip'}-${e.frota}`) === String(id || ''));
+            const equipment = (equipments || []).find(e => equipmentUiId(e) === String(id || ''));
             if (!equipment) {
                 showFloatingNotification('error', 'Não foi possível localizar este equipamento. Atualize a lista e tente novamente.');
                 return;
             }
             const previousPage = getEquipmentPage(equipment);
             const wasLocalOnly = !!equipment._localOnly;
-            const recordId = String(equipment.id || `${equipment.tipo || equipment.setor || 'equip'}-${equipment.frota}`).replaceAll('/', '_');
+            const recordId = String(equipment.id || createEquipmentId());
             const updatedAt = new Date().toISOString();
             equipment.id = recordId;
             equipment.pagina = pagina || '';
@@ -6035,6 +6180,7 @@
                 const pending = getPendingEquipments();
                 const pendingCreate = wasLocalOnly && pending.find(item => !item.action && String(item.frota).trim().toUpperCase() === String(equipment.frota).trim().toUpperCase() && getEquipmentPage(item) === previousPage);
                 if (pendingCreate) {
+                    pendingCreate.id = recordId;
                     pendingCreate.pagina = pagina || '';
                     pendingCreate.updated_at = updatedAt;
                     setPendingEquipments(pending);
@@ -6064,7 +6210,7 @@
             }
             container.innerHTML = list.map(e => {
                 if (!e.id && !e._localOnly) e._localOnly = true;
-                const equipmentId = escapeEquipmentAttribute(e.id || `${e.tipo || e.setor || 'equip'}-${e.frota}`);
+                const equipmentId = escapeEquipmentAttribute(equipmentUiId(e));
                 const pagina = getEquipmentPage(e);
                 return `
                 <div class="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -6080,6 +6226,10 @@
                         <option value="" ${!pagina ? 'selected' : ''}>Não definida — selecione</option>
                         ${equipmentPageOptions(pagina)}
                     </select>
+                    <div class="flex gap-2 mt-3">
+                        <button data-equipment-id="${equipmentId}" onclick="editEquipmentById(this.dataset.equipmentId)" class="px-3 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary-dark">Editar</button>
+                        <button data-equipment-id="${equipmentId}" onclick="deleteEquipmentById(this.dataset.equipmentId)" class="px-3 py-2 text-sm border border-red-300 text-red-700 dark:text-red-300 dark:border-red-700 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30">Excluir</button>
+                    </div>
                 </div>
             `;
             }).join('');
@@ -10885,7 +11035,11 @@
             for (const item of queue) {
                 try {
                     let result;
-                    if (item.action === 'update_page' && !item._localOnly && item.id) {
+                    if (item.action === 'delete' && item.id) {
+                        result = await checklistBackend.from('equipments').delete().eq('id', String(item.id));
+                    } else if (item.action === 'upsert') {
+                        result = await checklistBackend.from('equipments').upsert([{ ...persistableEquipment(item), id: String(item.id || createEquipmentId()) }]);
+                    } else if (item.action === 'update_page' && !item._localOnly && item.id) {
                         result = await checklistBackend.from('equipments').update({ pagina: item.pagina || '', updated_at: item.updated_at || new Date().toISOString() }).eq('id', String(item.id));
                     } else if (item.action === 'update_page') {
                         result = await checklistBackend.from('equipments').upsert([{ ...persistableEquipment(item), id: String(item.id) }]);
