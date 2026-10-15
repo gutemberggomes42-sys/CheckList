@@ -2361,8 +2361,10 @@
                 </div>
 
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
-                    <div class="flex items-center justify-between mb-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Frotas Cadastradas</h3>
+                        <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
+                            <input id="equipSearch" type="search" oninput="populateEquipmentList()" placeholder="Pesquisar frota, tipo ou descrição..." aria-label="Pesquisar frotas cadastradas" class="w-full sm:w-72 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 px-3 py-2">
                             <select id="equipFilterTipo" class="text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-1">
                                 <option value="all" selected>Todos</option>
                                 <option value="caminhao">Caminhão</option>
@@ -2376,6 +2378,7 @@
                                 <option value="tortao">Tortão</option>
                                 <option value="outros">Outros</option>
                             </select>
+                        </div>
                     </div>
                     <div id="equipList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
                 </div>
@@ -6430,9 +6433,19 @@
             if (!container) return;
             const tipo = filterSel ? filterSel.value : 'all';
             const aliases = tipo === 'all' ? null : typeAliases(tipo);
-            const list = (equipments || []).filter(e => !aliases ? true : aliases.includes(e.tipo || e.setor));
+            const searchInput = document.getElementById('equipSearch');
+            const searchText = String(searchInput && searchInput.value || '').trim();
+            const normalizedSearch = searchText.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const list = (equipments || []).filter(e => {
+                if (aliases && !aliases.includes(e.tipo || e.setor)) return false;
+                if (!normalizedSearch) return true;
+                const searchable = `${e.frota || ''} ${e.tipo || e.setor || ''} ${e.descricao || ''}`.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                return searchable.includes(normalizedSearch);
+            });
             if (list.length === 0) {
-                container.innerHTML = '<div class="text-gray-500 dark:text-gray-400">Nenhuma frota cadastrada</div>';
+                container.innerHTML = searchText
+                    ? `<div class="text-gray-500 dark:text-gray-400">Nenhuma frota encontrada para “${escapeEquipmentAttribute(searchText)}”.</div>`
+                    : '<div class="text-gray-500 dark:text-gray-400">Nenhuma frota cadastrada</div>';
                 return;
             }
             container.innerHTML = list.map(e => {
