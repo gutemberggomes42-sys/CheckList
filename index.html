@@ -4456,6 +4456,7 @@
             ensureUserRecord().then(() => { startPresence(); });
             loadInitialData();
             setupRealtime();
+            if (isAdmin()) checkPendingUserApprovals();
             startPolling();
             const last = localStorage.getItem('lastSection');
             if (last) { showSection(last); }
@@ -6494,6 +6495,8 @@
 
                 if (error) throw error;
 
+                notifyAdminAboutPendingUsers(users || []);
+
                 if (!users || users.length === 0) {
                     list.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">Nenhum usuário encontrado.</p>';
                     return;
@@ -6526,6 +6529,44 @@
             } catch (e) {
                 console.error(e);
                 list.innerHTML = `<p class="text-red-500 text-sm">Erro ao carregar usuários: ${e.message}</p>`;
+            }
+        }
+
+        function adminNotifiedPendingUserIds() {
+            const key = 'adminNotifiedPendingUserIds:' + String(currentUser && currentUser.uid || 'admin');
+            try {
+                const ids = JSON.parse(localStorage.getItem(key) || '[]');
+                return { key, ids: new Set(Array.isArray(ids) ? ids.map(String) : []) };
+            } catch (_) {
+                return { key, ids: new Set() };
+            }
+        }
+
+        function notifyAdminAboutPendingUsers(users) {
+            if (!isAdmin() || !Array.isArray(users)) return;
+            const { key, ids } = adminNotifiedPendingUserIds();
+            const pending = users.filter(user => user && user.approved !== true && user.ativo !== true && (user.id || user.uid || user.user_id));
+            const unseen = pending.filter(user => !ids.has(String(user.id || user.uid || user.user_id)));
+            if (!unseen.length) return;
+
+            unseen.forEach(user => {
+                const id = String(user.id || user.uid || user.user_id);
+                ids.add(id);
+                const name = String(user.name || user.displayName || user.email || 'Novo usuário');
+                pushNotification('warning', 'Usuário aguardando aprovação', `${name} precisa da sua aprovação.`);
+                showFloatingNotification('warning', `Novo usuário aguardando aprovação: ${name}`);
+            });
+            try { localStorage.setItem(key, JSON.stringify(Array.from(ids))); } catch (_) {}
+        }
+
+        async function checkPendingUserApprovals() {
+            if (!isAdmin() || !isOnline()) return;
+            try {
+                const { data, error } = await checklistBackend.from('users').select('*');
+                if (error) throw error;
+                notifyAdminAboutPendingUsers(data || []);
+            } catch (error) {
+                console.warn('Não foi possível verificar usuários aguardando aprovação:', error);
             }
         }
 
@@ -11072,7 +11113,13 @@
                             pushNotification('info', t, m, link);
                         }
                     })
-                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'users' }, () => { loadUsers(); })
+                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'users' }, (payload) => {
+                        const user = payload && payload.new ? payload.new : {};
+                        notifyAdminAboutPendingUsers([user]);
+                        loadUsers();
+                        const adminSection = document.getElementById('admin');
+                        if (adminSection && !adminSection.classList.contains('hidden')) loadAdminUsers();
+                    })
                     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, () => { loadUsers(); })
                     .subscribe();
 
