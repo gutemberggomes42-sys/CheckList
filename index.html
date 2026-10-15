@@ -1790,6 +1790,16 @@
                     </div>
                     <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Usuários</h3>
+                        <div class="mb-4 p-4 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20">
+                            <label for="adminPromoteUserSelect" class="block text-sm font-medium text-gray-800 dark:text-gray-200 mb-2">Adicionar outro administrador</label>
+                            <div class="flex flex-col sm:flex-row gap-2">
+                                <select id="adminPromoteUserSelect" class="flex-1 min-w-0 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                                    <option value="">Selecione um usuário</option>
+                                </select>
+                                <button type="button" onclick="promoteSelectedUserToAdmin()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">Tornar administrador</button>
+                            </div>
+                            <p class="mt-2 text-xs text-gray-600 dark:text-gray-300">Essa opção fica disponível somente para o administrador atual.</p>
+                        </div>
                         <div id="adminUsersList" class="space-y-2"></div>
                     </div>
                     <div class="p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
@@ -6515,6 +6525,17 @@
                 if (error) throw error;
 
                 notifyAdminAboutPendingUsers(users || [], true);
+                const promoteSelect = document.getElementById('adminPromoteUserSelect');
+                if (promoteSelect) {
+                    const previous = promoteSelect.value;
+                    const eligibleUsers = (users || []).filter(user => user.role !== 'admin' && String(user.email || '').toLowerCase() !== 'gutemberggg10@gmail.com');
+                    promoteSelect.innerHTML = '<option value="">Selecione um usuário</option>' + eligibleUsers.map(user => {
+                        const id = String(user.id || user.uid || user.user_id || '');
+                        const name = String(user.name || user.displayName || user.email || 'Usuário');
+                        return `<option value="${escapeEquipmentAttribute(id)}">${escapeEquipmentAttribute(name)}${user.email && user.name ? ' • ' + escapeEquipmentAttribute(user.email) : ''}</option>`;
+                    }).join('');
+                    if (eligibleUsers.some(user => String(user.id || user.uid || user.user_id || '') === previous)) promoteSelect.value = previous;
+                }
 
                 if (!users || users.length === 0) {
                     list.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">Nenhum usuário encontrado.</p>';
@@ -6649,6 +6670,13 @@
             } finally {
                 showLoading(false);
             }
+        }
+
+        function promoteSelectedUserToAdmin() {
+            if (!isAdmin()) { showCustomAlert('Acesso restrito ao administrador.'); return; }
+            const select = document.getElementById('adminPromoteUserSelect');
+            if (!select || !select.value) { showCustomAlert('Selecione um usuário para promover.'); return; }
+            setUserAdminRole(select.value, true);
         }
 
         async function checkPendingUserApprovals() {
