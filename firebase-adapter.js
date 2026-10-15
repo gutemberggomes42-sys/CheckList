@@ -210,9 +210,13 @@
                         });
                     }));
                 } else if (h.kind === 'broadcast' && this.name === 'system-broadcast') {
+                    const subscribedAt = Date.now();
                     this.unsubs.push(db.collection('_broadcasts').onSnapshot(snap => snap.docChanges().forEach(change => {
                         if (change.type !== 'added') return;
                         const message = change.doc.data();
+                        // Do not replay commands that existed before this page subscribed.
+                        // Otherwise force_refresh is replayed after reload in a loop.
+                        if (Number(message.created_at || 0) < subscribedAt) return;
                         if (Date.now() - (message.created_at || 0) < 60000 && message.event === h.filter.event) h.callback({ payload: message.payload || {} });
                     })));
                 } else if (h.kind === 'presence' && h.filter.event === 'sync') {
