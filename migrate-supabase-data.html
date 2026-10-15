@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Migração única para Firebase</title>
+  <style>
+    body{font:16px system-ui,sans-serif;max-width:760px;margin:40px auto;padding:0 20px;color:#172033;background:#f7f8fc}
+    main{background:#fff;border:1px solid #dbe1ea;border-radius:14px;padding:24px}
+    label{display:block;margin:14px 0 6px;font-weight:600}input{box-sizing:border-box;width:100%;padding:11px;border:1px solid #aab4c4;border-radius:8px}
+    button{margin-top:18px;padding:12px 18px;border:0;border-radius:8px;background:#5146d8;color:#fff;font-weight:700;cursor:pointer}
+    button:disabled{opacity:.5;cursor:wait}pre{white-space:pre-wrap;background:#101827;color:#d8e3f4;padding:16px;border-radius:8px;min-height:80px}
+    .note{color:#4b5563;line-height:1.5}
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<main>
+  <h1>Migração única: Supabase → Firebase</h1>
+  <p class="note">Informe uma conta com leitura no Supabase antigo e uma conta administradora do Firebase. A ferramenta copia os registros para coleções Firestore com os mesmos nomes e IDs. Ela não migra senhas dos usuários; cada pessoa precisará criar uma conta Firebase. Execute uma vez e mantenha esta página somente durante a migração.</p>
+  <label for="sourceEmail">Email da conta Supabase antiga</label><input id="sourceEmail" type="email" autocomplete="username">
+  <label for="sourcePassword">Senha da conta Supabase antiga</label><input id="sourcePassword" type="password" autocomplete="current-password">
+  <label for="email">Email administrador Firebase</label><input id="email" type="email" autocomplete="username">
+  <label for="password">Senha Firebase</label><input id="password" type="password" autocomplete="current-password">
+  <button id="run">Entrar e migrar dados</button>
+  <pre id="log">Aguardando início.</pre>
+</main>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyC0YwXx3ZU7WeP90foUaGo5fhl7hx6h2YQ",
+  authDomain: "checklist-e7644.firebaseapp.com",
+  databaseURL: "https://checklist-e7644-default-rtdb.firebaseio.com",
+  projectId: "checklist-e7644",
+  storageBucket: "checklist-e7644.firebasestorage.app",
+  messagingSenderId: "598591459289",
+  appId: "1:598591459289:web:38714ccf32fd433127d3c8",
+  measurementId: "G-M54S5XCLJB"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+const oldSupabase = window.supabase.createClient(
+  'https://zstcokbdhpweyoefbsol.supabase.co',
+  'sb_publishable_6dFKQwhJvMQutan77IuX9Q_PBFtqC_g'
+);
+const collections = ['inspections','irrig_inspections','equipments','system_events','users','usuarios','calibragem','controle_3p','access_controls'];
+const logEl = document.getElementById('log');
+function log(message){ logEl.textContent += '\n' + message; logEl.scrollTop = logEl.scrollHeight; }
+function documentId(row, index){
+  const raw = row.id ?? row.local_id ?? row.email ?? `import-${index}`;
+  return String(raw).replaceAll('/', '%2F');
+}
+async function fetchTable(table){
+  const all = [];
+  for(let from=0;;from+=1000){
+    const {data,error} = await oldSupabase.from(table).select('*').range(from,from+999);
+    if(error) throw new Error(`${table}: ${error.message}`);
+    const rows = data || []; all.push(...rows);
+    if(rows.length < 1000) return all;
+  }
+}
+async function migrateTable(table){
+  const rows = await fetchTable(table);
+  for(let offset=0;offset<rows.length;offset+=400){
+    const batch = db.batch();
+    rows.slice(offset,offset+400).forEach((row,index)=>{
+      batch.set(db.collection(table).doc(documentId(row,offset+index)),row,{merge:true});
+    });
+    await batch.commit();
+  }
+  log(`${table}: ${rows.length} registro(s) copiado(s)`);
+}
+document.getElementById('run').addEventListener('click',async function(){
+  const button=this; button.disabled=true; logEl.textContent='Autenticando no Firebase…';
+  try{
+    const sourceEmail=document.getElementById('sourceEmail').value.trim();
+    const sourcePassword=document.getElementById('sourcePassword').value;
+    const {error:sourceError}=await oldSupabase.auth.signInWithPassword({email:sourceEmail,password:sourcePassword});
+    document.getElementById('sourcePassword').value='';
+    if(sourceError) throw new Error(`Login Supabase: ${sourceError.message}`);
+    const email=document.getElementById('email').value.trim();
+    const password=document.getElementById('password').value;
+    const credential=await auth.signInWithEmailAndPassword(email,password);
+    document.getElementById('password').value='';
+    if(credential.user.email!=='gutemberggg10@gmail.com') throw new Error('Use a conta administradora cadastrada nas regras do Firestore.');
+    log(`Conectado como ${credential.user.email}`);
+    for(const table of collections) await migrateTable(table);
+    log('Migração concluída. Confira os dados e depois remova migrate-supabase-data.html.');
+  }catch(error){log(`ERRO: ${error.message || error}`);}
+  finally{try{await oldSupabase.auth.signOut();}catch(_){} button.disabled=false;}
+});
+</script>
+</body>
+</html>

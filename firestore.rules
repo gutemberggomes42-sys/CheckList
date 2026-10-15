@@ -1,0 +1,58 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function admin() {
+      return signedIn() && request.auth.token.email == 'gutemberggg10@gmail.com';
+    }
+
+    function approved() {
+      return admin() || (signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.approved == true);
+    }
+
+    match /users/{userId} {
+      allow read: if admin() || (signedIn() && resource.data.email == request.auth.token.email);
+      allow create: if admin() || (signedIn() && userId == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.approved == false);
+      allow update: if admin() || (signedIn() && userId == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.approved == resource.data.approved);
+      allow delete: if admin();
+    }
+
+    match /access_controls/{email} {
+      allow read: if signedIn();
+      allow create, update, delete: if approved();
+    }
+
+    match /system_events/{eventId} {
+      allow read, create: if signedIn();
+      allow update, delete: if admin();
+    }
+
+    match /_broadcasts/{messageId} {
+      allow read, create: if signedIn();
+      allow update, delete: if admin();
+    }
+
+    match /_presence/{userId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && userId == request.auth.uid;
+      allow delete: if admin() || (signedIn() && userId == request.auth.uid);
+    }
+
+    match /{collection}/{documentId} {
+      allow read: if signedIn() && collection != 'users' && collection != 'access_controls'
+        && collection != 'system_events' && collection != '_broadcasts' && collection != '_presence';
+      allow create, update, delete: if approved() && collection != 'users'
+        && collection != 'access_controls' && collection != 'system_events'
+        && collection != '_broadcasts' && collection != '_presence';
+    }
+  }
+}
