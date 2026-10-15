@@ -658,6 +658,18 @@
                 </div>
             </div>
         </div>
+        <div id="adminNewInspectionsModal" class="hidden fixed inset-0 bg-black bg-opacity-70 z-[90] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="adminNewInspectionsTitle">
+            <div class="w-full max-w-2xl max-h-[85vh] overflow-hidden rounded-2xl bg-white dark:bg-gray-800 shadow-2xl border border-gray-200 dark:border-gray-700">
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h2 id="adminNewInspectionsTitle" class="text-xl font-bold text-gray-900 dark:text-white">Novas inspeções</h2>
+                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Inspeções lançadas recentemente pelos usuários.</p>
+                </div>
+                <div id="adminNewInspectionsList" class="p-4 space-y-3 overflow-y-auto max-h-[55vh]"></div>
+                <div class="p-4 flex justify-end border-t border-gray-200 dark:border-gray-700">
+                    <button onclick="closeAdminNewInspectionsModal()" class="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white">Fechar</button>
+                </div>
+            </div>
+        </div>
         <div id="mobileActionBar" class="fixed bottom-0 inset-x-0 z-40 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between sm:hidden hidden">
             <div class="flex items-center gap-3">
                 <button onclick="backToSelection()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300">Voltar</button>
@@ -3350,6 +3362,8 @@
         let presenceChannel = null;
         let onlineUsers = {};
         let usersList = [];
+        let adminNewInspections = [];
+        const adminSeenInspectionKeys = new Set();
         let pollingTimer = null;
         let currentInspectionId = null;
         let currentPhotoSessionId = null;
@@ -4870,7 +4884,7 @@
                     totalSteps = 4;
                     syncNotifId = showFloatingNotification('info', 'Baixando dados do banco e preparando cache local (0%)', 0);
 
-                    const p1 = smartSync('inspections', inspections, 'id', 'created_at', 'id,data,tipo,frota,mecanico,observacao,items,results,created_at,local_id')
+                    const p1 = smartSync('inspections', inspections, 'id', 'created_at', 'id,data,tipo,frota,mecanico,observacao,items,results,user_id,created_at,local_id')
                         .then(res => {
                             const synced = dedupeInspections(res);
                             inspections = synced;
@@ -4884,7 +4898,7 @@
                             updateStep('Inspeções CCT com erro, usando dados locais');
                             return inspections;
                         });
-                    const p2 = smartSync('irrig_inspections', irrigInspections, 'id', 'created_at', 'id,data,tipo,frota,mecanico,observacao,items,results,created_at,local_id')
+                    const p2 = smartSync('irrig_inspections', irrigInspections, 'id', 'created_at', 'id,data,tipo,frota,mecanico,observacao,items,results,user_id,created_at,local_id')
                         .then(res => {
                             const synced = dedupeInspections(res);
                             irrigInspections = synced;
@@ -6731,6 +6745,84 @@
         }
 
         let pendingApprovalModalUsers = [];
+
+        async function resolveAdminInspectionAuthor(inspection) {
+            const userId = String(inspection?.user_id || '');
+            const known = usersList.find(user => String(user.id || user.uid || user.user_id || '') === userId);
+            if (known) return String(known.name || known.nome || known.displayName || known.email || inspection?.mecanico || 'Usuário não identificado');
+            if (userId && isOnline()) {
+                try {
+                    const { data } = await checklistBackend.from('users').select('*').eq('id', userId).maybeSingle();
+                    if (data) return String(data.name || data.nome || data.displayName || data.email || inspection?.mecanico || 'Usuário não identificado');
+                } catch (_) {}
+            }
+            return String(inspection?.mecanico || 'Usuário não identificado');
+        }
+
+        function renderAdminNewInspectionsModal() {
+            if (!isAdmin()) return;
+            const modal = document.getElementById('adminNewInspectionsModal');
+            const list = document.getElementById('adminNewInspectionsList');
+            if (!modal || !list) return;
+            if (!adminNewInspections.length) { modal.classList.add('hidden'); return; }
+            list.innerHTML = adminNewInspections.map(item => {
+                const inspection = item.inspection || {};
+                const moduleName = item.modulo === 'irr' ? 'Irrigação' : 'CCT';
+                const tipo = String(inspection.tipo || 'Inspeção');
+                const frota = String(inspection.frota || 'Frota não informada');
+                const date = inspection.data || inspection.created_at;
+                const dateText = date ? formatDateBR(date) : '';
+                return `<div class="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
+                    <div class="min-w-0"><p class="font-semibold text-gray-900 dark:text-white">${escapeEquipmentAttribute(tipo)} • ${escapeEquipmentAttribute(frota)}</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">Feita por: ${escapeEquipmentAttribute(item.author || inspection.mecanico || 'Identificando usuário…')}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">${escapeEquipmentAttribute(moduleName)}${dateText ? ` • ${escapeEquipmentAttribute(dateText)}` : ''}</p></div>
+                    <button type="button" data-open-admin-inspection="${escapeEquipmentAttribute(item.key)}" class="px-3 py-2 bg-primary hover:bg-primary-dark text-white text-sm rounded-md">Abrir checklist</button>
+                </div>`;
+            }).join('');
+            list.querySelectorAll('[data-open-admin-inspection]').forEach(button => button.addEventListener('click', () => openAdminNewInspection(button.dataset.openAdminInspection)));
+            modal.classList.remove('hidden');
+        }
+
+        function notifyAdminOfNewInspection(record, modulo) {
+            if (!isAdmin() || !record) return;
+            const id = String(record.id || record.local_id || '');
+            if (!id) return;
+            const key = `${modulo}:${id}`;
+            if (adminSeenInspectionKeys.has(key)) return;
+            adminSeenInspectionKeys.add(key);
+            const item = { key, modulo, inspection: record, author: '' };
+            adminNewInspections.unshift(item);
+            renderAdminNewInspectionsModal();
+            resolveAdminInspectionAuthor(record).then(author => {
+                item.author = author;
+                renderAdminNewInspectionsModal();
+            });
+        }
+
+        function closeAdminNewInspectionsModal() {
+            const modal = document.getElementById('adminNewInspectionsModal');
+            if (modal) modal.classList.add('hidden');
+            adminNewInspections = [];
+        }
+
+        async function openAdminNewInspection(key) {
+            if (!isAdmin()) return;
+            const item = adminNewInspections.find(entry => entry.key === key);
+            if (!item) return;
+            closeAdminNewInspectionsModal();
+            if (item.modulo === 'irr') {
+                showSection('irrigacao');
+                showIrrSubsection('historico');
+            } else {
+                showSection('cct_coque');
+                showCCTSubsection('historico');
+            }
+            const id = String(item.inspection.id || item.inspection.local_id || '');
+            if (!getAllInspectionsCombined().some(inspection => String(inspection.id || '') === id || String(inspection.local_id || '') === id)) {
+                await loadInitialData();
+            }
+            viewInspection(id);
+        }
 
         function renderPendingUsersApprovalModal() {
             if (!isAdmin()) return;
@@ -9835,6 +9927,7 @@
                     tipo: i.tipo,
                     frota: i.frota,
                     mecanico: i.mecanico,
+                    user_id: i.user_id,
                     items: i.items,
                     results: i.results,
                     created_at: i.created_at || i.data
@@ -11332,12 +11425,14 @@
                         }
                         const r = payload && payload.new ? payload.new : {};
                         const f = r.frota || '';
+                        notifyAdminOfNewInspection(r, 'cct');
                         pushNotification('info', 'Nova inspeção', f ? `Inspeção lançada para ${f}` : 'Inspeção lançada');
                     })
                     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'irrig_inspections' }, (payload) => {
                         if (!savingInspection) { loadInitialData(); }
                         const r = payload && payload.new ? payload.new : {};
                         const f = r.frota || '';
+                        notifyAdminOfNewInspection(r, 'irr');
                         pushNotification('info', 'Nova inspeção (Irrigação)', f ? `Inspeção lançada para ${f}` : 'Inspeção lançada');
                     })
                     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'equipments' }, (payload) => {
