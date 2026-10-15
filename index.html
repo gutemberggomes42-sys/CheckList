@@ -5901,7 +5901,7 @@
                 fetched = cached;
             }
             const map = new Map();
-            fetched.forEach(e => map.set(String(e.frota), e));
+            fetched.forEach(e => map.set(equipmentIdentityKey(e), e));
             equipments = Array.from(map.values());
             setCachedEquipments(equipments);
         }
@@ -5932,10 +5932,20 @@
             transporte_soja: 'CCT • Transporte de Soja'
         };
 
-        function getEquipmentPage(equipment) {
-            return String(equipment && (equipment.pagina || equipment.pagina_sistema) || '').trim().toLowerCase();
+        function normalizeEquipmentPage(page) {
+            const normalized = String(page || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[\s-]+/g, '_');
+            const aliases = { cct_safra: 'safra', cct_plantio: 'plantio', cct_apoio_plantio: 'apoio_plantio', cct_transporte_soja: 'transporte_soja', caminhoes_checklist: 'caminhoes' };
+            return aliases[normalized] || normalized;
         }
 
+        function getEquipmentPage(equipment) {
+            return normalizeEquipmentPage(equipment && (equipment.pagina || equipment.pagina_sistema));
+        }
+
+        function equipmentIdentityKey(equipment) {
+            const frota = String(equipment && equipment.frota || '').trim().toUpperCase();
+            return frota + '::' + getEquipmentPage(equipment);
+        }
         function persistableEquipment(equipment) {
             const { _localOnly, action, ...record } = equipment || {};
             return record;
@@ -6386,7 +6396,12 @@
                 showCustomAlert('Informe setor, frota e página do sistema.');
                 return;
             }
-            const item = { tipo, frota, descricao, status, pagina, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+            const item = { tipo, frota, descricao, status, pagina: normalizeEquipmentPage(pagina), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+            const duplicate = (equipments || []).find(e => equipmentIdentityKey(e) === equipmentIdentityKey(item));
+            if (duplicate) {
+                showCustomAlert('A frota ' + frota + ' já está cadastrada em ' + (equipmentPageLabels[item.pagina] || item.pagina) + '. Cada página mantém seu próprio cadastro.');
+                return;
+            }
             showLoading(true);
             try {
                 if (isOnline()) {
@@ -6454,7 +6469,7 @@
             } else {
                 equipment._localOnly = true;
                 const pending = getPendingEquipments();
-                const pendingCreate = wasLocalOnly && pending.find(item => !item.action && String(item.frota) === String(equipment.frota));
+                const pendingCreate = wasLocalOnly && pending.find(item => !item.action && String(item.frota).trim().toUpperCase() === String(equipment.frota).trim().toUpperCase() && getEquipmentPage(item) === previousPage);
                 if (pendingCreate) {
                     pendingCreate.pagina = pagina || '';
                     pendingCreate.updated_at = updatedAt;
